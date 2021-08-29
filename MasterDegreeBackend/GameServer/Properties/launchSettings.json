@@ -1,0 +1,11 @@
+﻿{
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "GameServer": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "GAME_PORT": "40000"
+      }
+    }
+  }
+}

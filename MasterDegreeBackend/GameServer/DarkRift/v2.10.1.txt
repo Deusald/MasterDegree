@@ -1,0 +1,4 @@
+Here you need to put .net Core 3.1 dlls for:
+- DarkRift
+- DarkRift.Client
+- DarkRift.Server
