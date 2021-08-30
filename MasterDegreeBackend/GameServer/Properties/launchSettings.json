@@ -4,7 +4,8 @@
     "GameServer": {
       "commandName": "Project",
       "environmentVariables": {
-        "GAME_PORT": "40000"
+        "GAME_PORT": "40000",
+        "WITH_WALLS": "true"
       }
     }
   }

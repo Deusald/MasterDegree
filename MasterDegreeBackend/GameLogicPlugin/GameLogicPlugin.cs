@@ -22,7 +22,11 @@
 // SOFTWARE.
 
 using System;
+using System.Net;
+using DarkRift;
 using DarkRift.Server;
+using DeusaldSharp;
+using GuerrillaNtp;
 
 namespace GameLogic
 {
@@ -37,7 +41,14 @@ namespace GameLogic
 
         #region Variables
 
-        private readonly Logger _Logger;
+        private long        _ServerClockStartTime;
+        private ServerClock _ServerClock;
+
+        private readonly Logger    _Logger;
+        private readonly GameLogic _GameLogic;
+
+        private const ushort _ServerTicksPerSecond = 30;
+        private const ushort _ServerTickLogEveryX  = _ServerTicksPerSecond * 5;
 
         #endregion Variables
 
@@ -45,9 +56,42 @@ namespace GameLogic
 
         public GameLogicPlugin(PluginLoadData pluginLoadData) : base(pluginLoadData)
         {
-            _Logger = Logger;
+            _Logger    = Logger;
+            _GameLogic = new GameLogic(_Logger, _ServerTicksPerSecond);
+            StartServerClock();
+            pluginLoadData.ClientManager.ClientConnected += OnClientConnected;
         }
 
         #endregion Special Methods
+
+        #region Private Methods
+
+        private void StartServerClock()
+        {
+            TimeSpan offset;
+
+            using (var ntp = new NtpClient(Dns.GetHostAddresses("pool.ntp.org")[0]))
+            {
+                offset = ntp.GetCorrectionOffset();
+            }
+
+            DateTime accurateTime = DateTime.UtcNow + offset;
+            _ServerClockStartTime =  accurateTime.Ticks;
+            _ServerClock          =  new ServerClock(_ServerTicksPerSecond, _ServerTickLogEveryX);
+            _ServerClock.Log      += s => _Logger.Log(s, LogType.Info);
+            _ServerClock.Tick     += ServerClockTick;
+        }
+
+        private void ServerClockTick(ulong frameNumber, double deltaTime)
+        {
+            _GameLogic.Update((float)deltaTime);
+        }
+        
+        private void OnClientConnected(object sender, ClientConnectedEventArgs e)
+        {
+            _GameLogic.OnClientConnected(e.Client);
+        }
+
+        #endregion Private Methods
     }
 }

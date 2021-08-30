@@ -6,8 +6,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="DeusaldSharp" Version="5.0.1" />
-      <PackageReference Include="SharpBox2D" Version="0.9.0" />
+      <PackageReference Include="DeusaldSharp" Version="5.0.2" />
+      <PackageReference Include="GuerrillaNtp" Version="2.0.1" />
+      <PackageReference Include="SharpBox2D" Version="0.9.1" />
     </ItemGroup>
 
     <ItemGroup>
@@ -23,6 +24,10 @@
         <HintPath>..\GameServer\DarkRift\DarkRift.Server.dll</HintPath>
         <Private>False</Private>
       </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\GameLogicCommon\GameLogicCommon.csproj" />
     </ItemGroup>
 
 </Project>
