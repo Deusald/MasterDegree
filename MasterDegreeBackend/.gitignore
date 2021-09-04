@@ -157,9 +157,5 @@ packages
 # Ignore project specific:
 
 # DarkRift Dlls
-/GameServer/DarkRift/DarkRift.dll
-/GameServer/DarkRift/DarkRift.xml
-/GameServer/DarkRift/DarkRift.Client.dll
-/GameServer/DarkRift/DarkRift.Client.xml
-/GameServer/DarkRift/DarkRift.Server.dll
-/GameServer/DarkRift/DarkRift.Server.xml
+/DarkRift/netcoreapp3.1/*
+/DarkRift/netstandard2.0/*

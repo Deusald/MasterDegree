@@ -5,27 +5,41 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="DeusaldSharp" Version="5.0.2" />
-      <PackageReference Include="SharpBox2D" Version="0.9.1" />
+        <PackageReference Include="DeusaldSharp" Version="5.0.2"/>
+        <PackageReference Include="SharpBox2D" Version="0.9.1"/>
     </ItemGroup>
 
-    <ItemGroup>
-      <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\GameServer\DarkRift\DarkRift.dll</HintPath>
-        <Private>False</Private>
-      </Reference>
-      <Reference Include="DarkRift.Client, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\GameServer\DarkRift\DarkRift.Client.dll</HintPath>
-        <Private>False</Private>
-      </Reference>
-      <Reference Include="DarkRift.Server, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\GameServer\DarkRift\DarkRift.Server.dll</HintPath>
-        <Private>False</Private>
-      </Reference>
+    <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp3.1'">
+        <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="DarkRift.Client, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.Client.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="DarkRift.Server, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.Server.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
     </ItemGroup>
 
-    <Target Name="CopyToClient" AfterTargets="AfterBuild">
-        <Copy SourceFiles="$(ProjectDir)bin/Release/netstandard2.0/GameLogicCommon.dll" DestinationFolder="$(ProjectDir)../../Client/Assets/Plugins/MasterDegree" />
+    <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0'">
+        <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>..\DarkRift\netstandard2.0\DarkRift.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="DarkRift.Client, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>..\DarkRift\netstandard2.0\DarkRift.Client.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="DarkRift.Server, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>..\DarkRift\netstandard2.0\DarkRift.Server.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <Target Name="CopyToClient" AfterTargets="PostBuildEvent" Condition=" '$(TargetFramework)' == 'netstandard2.0'">
+        <Copy SourceFiles="$(ProjectDir)bin/Release/netstandard2.0/GameLogicCommon.dll" DestinationFolder="$(ProjectDir)../../Client/Assets/Plugins/MasterDegree"/>
     </Target>
-
 </Project>

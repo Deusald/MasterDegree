@@ -12,22 +12,22 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\GameServer\DarkRift\DarkRift.dll</HintPath>
-        <Private>False</Private>
-      </Reference>
-      <Reference Include="DarkRift.Client, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\GameServer\DarkRift\DarkRift.Client.dll</HintPath>
-        <Private>False</Private>
-      </Reference>
-      <Reference Include="DarkRift.Server, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\GameServer\DarkRift\DarkRift.Server.dll</HintPath>
-        <Private>False</Private>
-      </Reference>
+      <ProjectReference Include="..\GameLogicCommon\GameLogicCommon.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\GameLogicCommon\GameLogicCommon.csproj" />
+      <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.dll</HintPath>
+        <Private>False</Private>
+      </Reference>
+      <Reference Include="DarkRift.Client, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.Client.dll</HintPath>
+        <Private>False</Private>
+      </Reference>
+      <Reference Include="DarkRift.Server, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.Server.dll</HintPath>
+        <Private>False</Private>
+      </Reference>
     </ItemGroup>
 
 </Project>
