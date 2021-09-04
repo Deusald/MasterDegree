@@ -5,8 +5,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DeusaldSharp" Version="5.0.2"/>
-        <PackageReference Include="SharpBox2D" Version="0.9.1"/>
+        <PackageReference Include="DeusaldSharp" Version="5.0.2" />
     </ItemGroup>
 
     <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp3.1'">
@@ -40,6 +39,6 @@
     </ItemGroup>
 
     <Target Name="CopyToClient" AfterTargets="PostBuildEvent" Condition=" '$(TargetFramework)' == 'netstandard2.0'">
-        <Copy SourceFiles="$(ProjectDir)bin/Release/netstandard2.0/GameLogicCommon.dll" DestinationFolder="$(ProjectDir)../../Client/Assets/Plugins/MasterDegree"/>
+        <Copy SourceFiles="$(ProjectDir)bin/Release/netstandard2.0/GameLogicCommon.dll" DestinationFolder="$(ProjectDir)../../Client/Assets/Plugins/MasterDegree" />
     </Target>
 </Project>

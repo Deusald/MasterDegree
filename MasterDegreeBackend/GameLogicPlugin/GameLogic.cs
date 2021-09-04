@@ -146,8 +146,8 @@ namespace GameLogic
                 Player player = new Player(playerId)
                 {
                     Client            = client,
-                    MainPhysicsObj    = Physics.SpawnPlayer(playerId, _MainPhysics),
-                    LagCompPhysicsObj = Physics.SpawnPlayer(playerId, _LagCompensationPhysics)
+                    MainPhysicsObj    = SpawnPlayer(playerId, _MainPhysics),
+                    LagCompPhysicsObj = SpawnPlayer(playerId, _LagCompensationPhysics)
                 };
 
                 _Players.Add(player);
@@ -184,10 +184,10 @@ namespace GameLogic
             _MainPhysics            = new Physics2DControl(_NumberOfFramesPerSecond, Vector2.Zero);
             _LagCompensationPhysics = new Physics2DControl(_NumberOfFramesPerSecond, Vector2.Zero);
 
-            Physics.InitOuterWalls(_MainPhysics);
-            Physics.InitOuterWalls(_LagCompensationPhysics);
-            Physics.FillInnerWalls(_MainPhysics);
-            Physics.FillInnerWalls(_LagCompensationPhysics);
+            InitOuterWalls(_MainPhysics);
+            InitOuterWalls(_LagCompensationPhysics);
+            FillInnerWalls(_MainPhysics);
+            FillInnerWalls(_LagCompensationPhysics);
         }
 
         private void FillDestroyableWalls()
@@ -200,7 +200,7 @@ namespace GameLogic
                 ObjectType = Game.ObjectType.DestroyableWall
             };
 
-            Physics.FillDestroyableWalls(vector2 =>
+            Game.FillDestroyableWalls(vector2 =>
             {
                 IPhysicsObject wall = _MainPhysics.CreatePhysicsObject(BodyType.Kinematic, vector2, 0f);
                 wall.UserData = objectId;
@@ -275,6 +275,18 @@ namespace GameLogic
             }
         }
 
+        private void SendStartMessage()
+        {
+            using (DarkRiftWriter messageWriter = DarkRiftWriter.Create())
+            {
+                using (Message netMessage = Message.Create((ushort) Messages.MessageId.StartGame, messageWriter))
+                {
+                    foreach (Player player in _Players)
+                        player.Client.SendMessage(netMessage, SendMode.Reliable);
+                }
+            }
+        }
+
         private void OnMessageReceivedFromPlayer(object sender, MessageReceivedEventArgs e)
         {
             if (e.Tag == (ushort)Messages.MessageId.ClientHeartBeat)
@@ -294,10 +306,91 @@ namespace GameLogic
 
                 return;
             }
+
+            lock (_GameLockObject)
+            {
+                using (Message netMessage = e.GetMessage())
+                {
+                    using (DarkRiftReader reader = netMessage.GetReader())
+                    {
+                        switch (e.Tag)
+                        {
+                            case (ushort)Messages.MessageId.StartGame:
+                            {
+                                // TODO: uncomment this
+                                //if (_Players.Count < 2) break;
+                                _GameState = Game.GameState.Running;
+                                SendStartMessage();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         #endregion Messages
 
+        #region Physics
+
+        private void InitOuterWalls(Physics2D physics)
+        {
+            Game.PhysicsObjectId objectId = new Game.PhysicsObjectId
+            {
+                Id         = 0,
+                ObjectType = Game.ObjectType.StaticWall
+            };
+
+            IPhysicsObject leftWall = physics.CreatePhysicsObject(BodyType.Static, new Vector2(-3.5f, 0f), 0f);
+            leftWall.UserData = objectId;
+            leftWall.AddEdgeCollider(new Vector2(-3.5f, -3.5f), new Vector2(-3.5f, 3.5f));
+
+            IPhysicsObject rightWall = physics.CreatePhysicsObject(BodyType.Static, new Vector2(3.5f, 0f), 0f);
+            rightWall.UserData = objectId;
+            rightWall.AddEdgeCollider(new Vector2(3.5f, -3.5f), new Vector2(3.5f, 3.5f));
+
+            IPhysicsObject upWall = physics.CreatePhysicsObject(BodyType.Static, new Vector2(0f, 3.5f), 0f);
+            upWall.UserData = objectId;
+            upWall.AddEdgeCollider(new Vector2(-3.5f, 3.5f), new Vector2(3.5f, 3.5f));
+
+            IPhysicsObject downWall = physics.CreatePhysicsObject(BodyType.Static, new Vector2(0f, 3.5f), 0f);
+            downWall.UserData = objectId;
+            downWall.AddEdgeCollider(new Vector2(-3.5f, -3.5f), new Vector2(3.5f, -3.5f));
+        }
+        
+        private void FillInnerWalls(Physics2D physics)
+        {
+            Game.PhysicsObjectId objectId = new Game.PhysicsObjectId
+            {
+                Id         = 0,
+                ObjectType = Game.ObjectType.StaticWall
+            };
+
+            for (int x = -2; x <= 2; x += 2)
+            {
+                for (int y = -2; y <= 2; y += 2)
+                {
+                    IPhysicsObject wall = physics.CreatePhysicsObject(BodyType.Static, new Vector2(x, y), 0f);
+                    wall.UserData = objectId;
+                    wall.AddBoxCollider(1, 1);
+                }
+            }
+        }
+        
+        private IPhysicsObject SpawnPlayer(byte id, Physics2D physics2D)
+        {
+            IPhysicsObject player = physics2D.CreatePhysicsObject(BodyType.Dynamic, Game.PlayersSpawnPoints[id], 0);
+            player.UserData = new Game.PhysicsObjectId
+            {
+                ObjectType = Game.ObjectType.Player,
+                Id         = id
+            };
+            player.AddCircleCollider(0.4f);
+            return player;
+        }
+
+        #endregion Physics
+        
         #endregion Private Methods
     }
 }

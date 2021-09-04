@@ -7,13 +7,6 @@
       "dependencies": {},
       "hash": "8dec274dacc106da2664ff3f72f650115940fede"
     },
-    "com.deusald.sharpbox2d": {
-      "version": "https://github.com/Deusald/SharpBox2D.git?path=/UnityPackage.NetStandard2.0",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "139b1420ca04f57924b8715fd38f9974051a5a5c"
-    },
     "com.unity.collab-proxy": {
       "version": "1.7.1",
       "depth": 0,

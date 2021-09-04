@@ -42,7 +42,8 @@ namespace GameLogicCommon
             ClientHeartBeat,
             ServerHeartBeat,
             PlayerInit,
-            SpawnPlayer
+            SpawnPlayer,
+            StartGame
         }
 
         public class PlayerInitMsg : INetMessage
