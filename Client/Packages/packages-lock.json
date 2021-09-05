@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "com.deusald.deusaldsharp": {
-      "version": "https://github.com/Deusald/DeusaldSharp.git?path=/UnityPackage.NetStandard2.0",
+      "version": "https://github.com/Deusald/DeusaldSharp.git?path=/UnityPackage.Net48",
       "depth": 0,
       "source": "git",
       "dependencies": {},

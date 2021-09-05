@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>netcoreapp3.1;netstandard2.0</TargetFrameworks>
+        <TargetFrameworks>net48;netcoreapp3.1</TargetFrameworks>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="DeusaldSharp" Version="5.0.2" />
+        <PackageReference Include="SharpBox2D" Version="0.9.1" />
     </ItemGroup>
 
     <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp3.1'">
@@ -23,22 +24,22 @@
         </Reference>
     </ItemGroup>
 
-    <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0'">
+    <ItemGroup Condition=" '$(TargetFramework)' == 'net48'">
         <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>..\DarkRift\netstandard2.0\DarkRift.dll</HintPath>
+            <HintPath>..\DarkRift\net48\DarkRift.dll</HintPath>
             <Private>False</Private>
         </Reference>
         <Reference Include="DarkRift.Client, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>..\DarkRift\netstandard2.0\DarkRift.Client.dll</HintPath>
+            <HintPath>..\DarkRift\net48\DarkRift.Client.dll</HintPath>
             <Private>False</Private>
         </Reference>
         <Reference Include="DarkRift.Server, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>..\DarkRift\netstandard2.0\DarkRift.Server.dll</HintPath>
+            <HintPath>..\DarkRift\net48\DarkRift.Server.dll</HintPath>
             <Private>False</Private>
         </Reference>
     </ItemGroup>
 
-    <Target Name="CopyToClient" AfterTargets="PostBuildEvent" Condition=" '$(TargetFramework)' == 'netstandard2.0'">
-        <Copy SourceFiles="$(ProjectDir)bin/Release/netstandard2.0/GameLogicCommon.dll" DestinationFolder="$(ProjectDir)../../Client/Assets/Plugins/MasterDegree" />
+    <Target Name="CopyToClient" AfterTargets="PostBuildEvent" Condition=" '$(TargetFramework)' == 'net48'">
+        <Copy SourceFiles="$(ProjectDir)bin/Release/net48/GameLogicCommon.dll" DestinationFolder="$(ProjectDir)../../Client/Assets/Plugins/MasterDegree" />
     </Target>
 </Project>

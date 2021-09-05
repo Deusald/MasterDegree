@@ -158,4 +158,4 @@ packages
 
 # DarkRift Dlls
 /DarkRift/netcoreapp3.1/*
-/DarkRift/netstandard2.0/*
+/DarkRift/net48/*

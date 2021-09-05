@@ -206,13 +206,13 @@ namespace GameLogic
         {
             if (!_SpawnDestroyableWalls) return;
 
-            /*Game.PhysicsObjectId objectId = new Game.PhysicsObjectId
+            Game.PhysicsObjectId objectId = new Game.PhysicsObjectId
             {
                 Id         = 0,
                 ObjectType = Game.ObjectType.DestroyableWall
             };
 
-            Game.FillDestroyableWalls(vector2 =>
+            FillDestroyableWalls(vector2 =>
             {
                 IPhysicsObject wall = _MainPhysics.CreatePhysicsObject(BodyType.Kinematic, vector2, 0f);
                 wall.UserData = objectId;
@@ -230,7 +230,7 @@ namespace GameLogic
                     Power             = 0,
                     FrameToDestroy    = uint.MaxValue
                 };
-            });*/
+            });
         }
 
         #endregion Init
@@ -303,7 +303,7 @@ namespace GameLogic
                     Position    = player.MainPhysicsObj.Position,
                     PreviousDir = player.Inputs.ContainsKey(_PhysicsTickNumber) ? player.Inputs[_PhysicsTickNumber].Direction : Vector2.Zero
                 };
-                
+
                 SendMessageToAllPlayers(msg);
             }
         }
@@ -440,6 +440,27 @@ namespace GameLogic
         #endregion Messages
 
         #region Physics
+
+        private void FillDestroyableWalls(Action<Vector2> spawnWallCallback)
+        {
+            for (int y = 3; y >= -3; --y)
+            {
+                int maxX = 3;
+                int minX = -3;
+
+                // Players needs to have safe corner for the start of the game
+                if (y == 3 || y == 2 || y == -3 || y == -2)
+                {
+                    maxX = 1;
+                    minX = -1;
+                }
+
+                for (int x = maxX; x >= minX; --x)
+                {
+                    spawnWallCallback?.Invoke(new Vector2(x, y));
+                }
+            }
+        }
 
         private void InitOuterWalls(Physics2D physics)
         {

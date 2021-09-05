@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "com.deusald.deusaldsharp": "https://github.com/Deusald/DeusaldSharp.git?path=/UnityPackage.NetStandard2.0",
+    "com.deusald.deusaldsharp": "https://github.com/Deusald/DeusaldSharp.git?path=/UnityPackage.Net48",
     "com.unity.collab-proxy": "1.7.1",
     "com.unity.ide.rider": "3.0.7",
     "com.unity.ide.visualstudio": "2.0.11",

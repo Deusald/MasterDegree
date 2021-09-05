@@ -21,7 +21,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-using System;
 using DeusaldSharp;
 
 namespace GameLogicCommon
@@ -63,26 +62,5 @@ namespace GameLogicCommon
             new Vector2(-3, 3), new Vector2(3, -3),
             new Vector2(3, 3), new Vector2(-3, -3)
         };
-
-        public static void FillDestroyableWalls(Action<Vector2> spawnWallCallback)
-        {
-            for (int y = 3; y >= -3; --y)
-            {
-                int maxX = 3;
-                int minX = -3;
-
-                // Players needs to have safe corner for the start of the game
-                if (y == 3 || y == 2 || y == -3 || y == -2)
-                {
-                    maxX = 1;
-                    minX = -1;
-                }
-
-                for (int x = maxX; x >= minX; --x)
-                {
-                    spawnWallCallback?.Invoke(new Vector2(x, y));
-                }
-            }
-        }
     }
 }
