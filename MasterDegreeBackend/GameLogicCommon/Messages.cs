@@ -46,7 +46,8 @@ namespace GameLogicCommon
             SpawnPlayer,
             StartGame,
             PlayerInput,
-            PlayerPosition
+            PlayerPosition,
+            PutBomb
         }
 
         public class PlayerInitMsg : INetMessage
@@ -170,6 +171,34 @@ namespace GameLogicCommon
                 Frame       = reader.ReadUInt32();
                 Position    = new Vector2(reader.ReadSingle(), reader.ReadSingle());
                 PreviousDir = new Vector2(reader.ReadSingle(), reader.ReadSingle());
+            }
+        }
+
+        public class PutBomb : INetMessage
+        {
+            public MessageId MessageId  => MessageId.PutBomb;
+            public bool      IsFrequent => false;
+
+            public uint    FrameToDestroy { get; set; }
+            public byte    PlayerId       { get; set; }
+            public Vector2 Position       { get; set; }
+            public byte    Power          { get; set; }
+
+            public void Write(DarkRiftWriter writer)
+            {
+                writer.Write(FrameToDestroy);
+                writer.Write(PlayerId);
+                writer.Write(Position.x);
+                writer.Write(Position.y);
+                writer.Write(Power);
+            }
+
+            public void Read(DarkRiftReader reader)
+            {
+                FrameToDestroy = reader.ReadUInt32();
+                PlayerId       = reader.ReadByte();
+                Position       = new Vector2(reader.ReadSingle(), reader.ReadSingle());
+                Power          = reader.ReadByte();
             }
         }
     }

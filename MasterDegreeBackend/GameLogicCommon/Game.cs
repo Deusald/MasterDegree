@@ -38,7 +38,9 @@ namespace GameLogicCommon
         {
             StaticWall      = 1,
             Player          = 2,
-            DestroyableWall = 3
+            DestroyableWall = 3,
+            Bomb            = 4,
+            Bonus           = 5
         }
 
         public struct PhysicsObjectId
@@ -54,9 +56,9 @@ namespace GameLogicCommon
             public bool    Detonate  { get; set; }
             public uint    Frame     { get; set; }
         }
-        
+
         public const float PlayerSpeed = 5f;
-        
+
         public static readonly Vector2[] PlayersSpawnPoints =
         {
             new Vector2(-3, 3), new Vector2(3, -3),
