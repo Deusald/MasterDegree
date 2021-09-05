@@ -24,6 +24,7 @@
 using System.Collections.Generic;
 using DarkRift;
 using DeusaldSharp;
+using SharpBox2D;
 
 namespace GameLogicCommon
 {
@@ -48,7 +49,8 @@ namespace GameLogicCommon
             PlayerInput,
             PlayerPosition,
             PutBomb,
-            ExplosionResult
+            ExplosionResult,
+            BonusTaken
         }
 
         public class PlayerInitMsg : INetMessage
@@ -183,7 +185,6 @@ namespace GameLogicCommon
             public uint    FrameToDestroy { get; set; }
             public byte    PlayerId       { get; set; }
             public Vector2 Position       { get; set; }
-            public byte    Power          { get; set; }
 
             public void Write(DarkRiftWriter writer)
             {
@@ -191,7 +192,6 @@ namespace GameLogicCommon
                 writer.Write(PlayerId);
                 writer.Write(Position.x);
                 writer.Write(Position.y);
-                writer.Write(Power);
             }
 
             public void Read(DarkRiftReader reader)
@@ -199,7 +199,6 @@ namespace GameLogicCommon
                 FrameToDestroy = reader.ReadUInt32();
                 PlayerId       = reader.ReadByte();
                 Position       = new Vector2(reader.ReadSingle(), reader.ReadSingle());
-                Power          = reader.ReadByte();
             }
         }
 
@@ -208,14 +207,15 @@ namespace GameLogicCommon
             public MessageId MessageId  => MessageId.ExplosionResult;
             public bool      IsFrequent => false;
 
-            public Vector2       BombPosition     { get; set; }
-            public List<Vector2> WallsDestroyed   { get; set; }
-            public List<byte>    PlayersKilled    { get; set; }
-            public List<Vector2> BonusesDestroyed { get; set; }
-            public float         UpDistance       { get; set; }
-            public float         DownDistance     { get; set; }
-            public float         LeftDistance     { get; set; }
-            public float         RightDistance    { get; set; }
+            public Vector2                             BombPosition     { get; set; }
+            public List<Vector2>                       WallsDestroyed   { get; set; }
+            public List<byte>                          PlayersKilled    { get; set; }
+            public List<Vector2>                       BonusesDestroyed { get; set; }
+            public Dictionary<Vector2, Game.BonusType> BonusesSpawned   { get; set; }
+            public float                               UpDistance       { get; set; }
+            public float                               DownDistance     { get; set; }
+            public float                               LeftDistance     { get; set; }
+            public float                               RightDistance    { get; set; }
 
             public void Write(DarkRiftWriter writer)
             {
@@ -228,14 +228,14 @@ namespace GameLogicCommon
                     writer.Write(WallsDestroyed[i].x);
                     writer.Write(WallsDestroyed[i].y);
                 }
-                
+
                 writer.Write(PlayersKilled.Count);
 
                 for (int i = 0; i < PlayersKilled.Count; ++i)
                 {
                     writer.Write(PlayersKilled[i]);
                 }
-                
+
                 writer.Write(BonusesDestroyed.Count);
 
                 for (int i = 0; i < BonusesDestroyed.Count; ++i)
@@ -243,7 +243,16 @@ namespace GameLogicCommon
                     writer.Write(BonusesDestroyed[i].x);
                     writer.Write(BonusesDestroyed[i].y);
                 }
-                
+
+                writer.Write(BonusesSpawned.Count);
+
+                foreach (var pair in BonusesSpawned)
+                {
+                    writer.Write(pair.Key.x);
+                    writer.Write(pair.Key.y);
+                    writer.Write((byte)pair.Value);
+                }
+
                 writer.Write(UpDistance);
                 writer.Write(DownDistance);
                 writer.Write(LeftDistance);
@@ -261,7 +270,7 @@ namespace GameLogicCommon
                 {
                     WallsDestroyed.Add(new Vector2(reader.ReadSingle(), reader.ReadSingle()));
                 }
-                
+
                 int playersKilled = reader.ReadInt32();
                 PlayersKilled = new List<byte>();
 
@@ -269,19 +278,54 @@ namespace GameLogicCommon
                 {
                     PlayersKilled.Add(reader.ReadByte());
                 }
-                
+
                 int bonusesDestroyed = reader.ReadInt32();
                 BonusesDestroyed = new List<Vector2>();
-                
+
                 for (int i = 0; i < bonusesDestroyed; ++i)
                 {
                     BonusesDestroyed.Add(new Vector2(reader.ReadSingle(), reader.ReadSingle()));
+                }
+
+                int bonusesSpawned = reader.ReadInt32();
+                BonusesSpawned = new Dictionary<Vector2, Game.BonusType>();
+
+                for (int i = 0; i < bonusesSpawned; ++i)
+                {
+                    Vector2        position  = new Vector2(reader.ReadSingle(), reader.ReadSingle());
+                    Game.BonusType bonusType = (Game.BonusType)reader.ReadByte();
+                    BonusesSpawned.Add(position, bonusType);
                 }
 
                 UpDistance    = reader.ReadSingle();
                 DownDistance  = reader.ReadSingle();
                 LeftDistance  = reader.ReadSingle();
                 RightDistance = reader.ReadSingle();
+            }
+        }
+
+        public class BonusTaken : INetMessage
+        {
+            public MessageId MessageId  => MessageId.BonusTaken;
+            public bool      IsFrequent => false;
+
+            public Vector2        Position  { get; set; }
+            public Game.BonusType BonusType { get; set; }
+            public byte           PlayerId  { get; set; }
+
+            public void Write(DarkRiftWriter writer)
+            {
+                writer.Write(Position.x);
+                writer.Write(Position.y);
+                writer.Write((byte)BonusType);
+                writer.Write(PlayerId);
+            }
+
+            public void Read(DarkRiftReader reader)
+            {
+                Position  = new Vector2(reader.ReadSingle(), reader.ReadSingle());
+                BonusType = (Game.BonusType)reader.ReadByte();
+                PlayerId  = reader.ReadByte();
             }
         }
     }

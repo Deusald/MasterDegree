@@ -42,6 +42,13 @@ namespace GameLogicCommon
             Bomb            = 4,
             Bonus           = 5
         }
+        
+        public enum BonusType
+        {
+            Power,
+            Bomb,
+            Detonator
+        }
 
         public struct PhysicsObjectId
         {

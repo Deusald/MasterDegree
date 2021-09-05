@@ -42,6 +42,7 @@ namespace GameLogic
             public byte                               Id                  { get; }
             public IClient                            Client              { get; set; }
             public IPhysicsObject                     PhysicsObj          { get; set; }
+            public ICollider                          Collider            { get; set; }
             public bool                               IsDead              { get; set; }
             public bool                               HasDetonator        { get; set; }
             public Dictionary<uint, Game.PlayerInput> Inputs              { get; }
@@ -55,6 +56,7 @@ namespace GameLogic
             {
                 Id                  = id;
                 IsDead              = false;
+                HasDetonator        = false;
                 Inputs              = new Dictionary<uint, Game.PlayerInput>();
                 Positions           = new Dictionary<uint, Vector2>();
                 Bombs               = new HashSet<Vector2>();
@@ -94,6 +96,7 @@ namespace GameLogic
         private uint             _PhysicsTickNumber;
 
         private readonly object                          _GameLockObject;
+        private readonly Random                          _Random;
         private readonly Logger                          _Logger;
         private readonly bool                            _SpawnDestroyableWalls;
         private readonly ushort                          _NumberOfFramesPerSecond;
@@ -102,6 +105,7 @@ namespace GameLogic
         private readonly Dictionary<ushort, byte>        _ClientIdToPlayerId;
         private readonly Dictionary<Vector2, GameObject> _DestroyableWalls;
         private readonly Dictionary<Vector2, GameObject> _Bombs;
+        private readonly Dictionary<Vector2, GameObject> _Bonuses;
 
         #endregion Variables
 
@@ -110,6 +114,7 @@ namespace GameLogic
         public GameLogic(Logger logger, ushort framesPerSecond)
         {
             _GameLockObject          = new object();
+            _Random                  = new Random();
             _Logger                  = logger;
             _SpawnDestroyableWalls   = bool.Parse(Environment.GetEnvironmentVariable("WITH_WALLS")!);
             _NumberOfFramesPerSecond = framesPerSecond;
@@ -119,6 +124,7 @@ namespace GameLogic
             _ClientIdToPlayerId      = new Dictionary<ushort, byte>();
             _DestroyableWalls        = new Dictionary<Vector2, GameObject>();
             _Bombs                   = new Dictionary<Vector2, GameObject>();
+            _Bonuses                 = new Dictionary<Vector2, GameObject>();
 
             InitPhysics();
             FillDestroyableWalls();
@@ -143,6 +149,7 @@ namespace GameLogic
                     _Physics.Step();
                     StoreAllPlayerCurrentPositions();
                     ExplodeAllExpiredBombs();
+                    ClearExpiredBonuses();
                     SendAllPlayersPositions();
                 }
             }
@@ -161,10 +168,13 @@ namespace GameLogic
                 byte playerId = (byte)_Players.Count;
 
                 // Create player
+                var physicsPlayer = SpawnPlayer(playerId, _Physics);
+
                 Player player = new Player(playerId)
                 {
                     Client     = client,
-                    PhysicsObj = SpawnPlayer(playerId, _Physics)
+                    PhysicsObj = physicsPlayer.Item1,
+                    Collider   = physicsPlayer.Item2
                 };
 
                 _Players.Add(player);
@@ -201,6 +211,7 @@ namespace GameLogic
             _Physics                  =  new Physics2DControl(_NumberOfFramesPerSecond, Vector2.Zero);
             _Physics.PreCollision     += DisablePlayerToPlayerCollision;
             _Physics.OnCollisionEnter += BombCollisionEnter;
+            _Physics.OnCollisionEnter += BonusCollisionEnter;
             _Physics.OnCollisionExit  += BombCollisionExit;
 
             InitOuterWalls(_Physics);
@@ -317,8 +328,7 @@ namespace GameLogic
                     // We explode bombs only if frame to destroy is older than current frame
                     if (bomb.Value.FrameToDestroy > _PhysicsTickNumber) continue;
 
-                    uint  frameToDestroy = bomb.Value.FrameToDestroy;
-                    sbyte owner          = bomb.Value.Owner;
+                    uint frameToDestroy = bomb.Value.FrameToDestroy;
                     _Players[bomb.Value.Owner].Bombs.Remove(bomb.Key);
                     bomb.Value.Destroy();
                     _Bombs.Remove(bomb.Key);
@@ -326,6 +336,16 @@ namespace GameLogic
                     explosion = true;
                 }
             } while (explosion);
+        }
+
+        private void ClearExpiredBonuses()
+        {
+            foreach (Vector2 position in _Bonuses.Keys.ToArray())
+            {
+                if (_Bonuses[position].FrameToDestroy != 0) return;
+                _Bonuses[position].Destroy();
+                _Bonuses.Remove(position);
+            }
         }
 
         private void SendAllPlayersPositions()
@@ -351,7 +371,7 @@ namespace GameLogic
 
         #endregion Update
 
-        #region Bomb
+        #region Bomb & Bonuses
 
         private void BombCollisionEnter(ICollisionData collisionData)
         {
@@ -435,6 +455,8 @@ namespace GameLogic
                 frameToDestroy = (uint)(_PhysicsTickNumber + _NumberOfFramesPerSecond * 2);
             }
 
+            _Logger.Log($"Bobmb created at position {bombPos}", LogType.Info);
+
             GameObject gameObject = new GameObject
             {
                 PhysicsObj     = physicsBomb,
@@ -449,7 +471,6 @@ namespace GameLogic
             Messages.PutBomb msg = new Messages.PutBomb
             {
                 Position       = bombPos,
-                Power          = power,
                 PlayerId       = playerId,
                 FrameToDestroy = frameToDestroy
             };
@@ -461,9 +482,10 @@ namespace GameLogic
         {
             Messages.ExplosionResult explosionResult = new Messages.ExplosionResult
             {
-                BombPosition = position
+                BombPosition   = position,
+                BonusesSpawned = new Dictionary<Vector2, Game.BonusType>()
             };
-            
+
             float upExplosionDistance    = power;
             float downExplosionDistance  = power;
             float leftExplosionDistance  = power;
@@ -489,17 +511,18 @@ namespace GameLogic
 
                 // This position is from the past but it was the present frame of enemy position when player detonated bomb
                 uint frameInPast = _PhysicsTickNumber - playerTriggeringDelayInFrames - 1;
-                
+
                 // Move all players back to the position from past (time where player detonates bomb on his timeline)
                 for (int i = 0; i < _Players.Count; ++i)
                 {
-                    _Players[i].PhysicsObj.GetCollider(0).IsSensor = true;
-                    _Players[i].PhysicsObj.Position                = _Players[i].Positions[frameInPast];
+                    if (_Players[i].IsDead) continue;
+                    _Players[i].Collider.IsSensor   = true;
+                    _Players[i].PhysicsObj.Position = _Players[i].Positions[frameInPast];
                 }
-                
+
                 _Physics.Step();
             }
-            
+
             CheckDestruction(power, position, Vector2.Up, playersKilled, wallsDestroyed, bonusDestroyed, frameToDestroy, ref upExplosionDistance);
             CheckDestruction(power, position, Vector2.Down, playersKilled, wallsDestroyed, bonusDestroyed, frameToDestroy, ref downExplosionDistance);
             CheckDestruction(power, position, Vector2.Left, playersKilled, wallsDestroyed, bonusDestroyed, frameToDestroy, ref leftExplosionDistance);
@@ -512,7 +535,7 @@ namespace GameLogic
             explosionResult.DownDistance     = downExplosionDistance;
             explosionResult.LeftDistance     = leftExplosionDistance;
             explosionResult.RightDistance    = rightExplosionDistance;
-            
+
             // Destroy all walls that bomb reached
             foreach (Vector2 wallPos in wallsDestroyed)
             {
@@ -520,11 +543,17 @@ namespace GameLogic
 
                 _DestroyableWalls[wallPos].Destroy();
                 _DestroyableWalls.Remove(wallPos);
-                // TODO: TrySpawnBonus(wallPos, explosionResult);
+                TrySpawnBonus(wallPos, explosionResult);
             }
 
             // Destroy all bonuses that bomb reached
-            // TODO
+            foreach (Vector2 bonusPos in explosionResult.BonusesDestroyed)
+            {
+                if (!_Bonuses.ContainsKey(bonusPos)) continue;
+
+                _Bonuses[bonusPos].Destroy();
+                _Bonuses.Remove(bonusPos);
+            }
 
             // Kill all players that bomb reached
             foreach (int playerKilled in playersKilled)
@@ -534,18 +563,19 @@ namespace GameLogic
                 _Players[playerKilled].IsDead             = true;
                 _Players[playerKilled].PhysicsObj.Enabled = false;
             }
-            
+
             SendMessageToAllPlayers(explosionResult);
-            
+
             // Return lag compensation movements
             if (frameToDestroy <= 3)
             {
                 for (int i = 0; i < _Players.Count; ++i)
                 {
-                    _Players[i].PhysicsObj.GetCollider(0).IsSensor = false;
-                    _Players[i].PhysicsObj.Position                = _Players[i].Positions[_PhysicsTickNumber];
+                    if (_Players[i].IsDead) continue;
+                    _Players[i].Collider.IsSensor   = false;
+                    _Players[i].PhysicsObj.Position = _Players[i].Positions[_PhysicsTickNumber];
                 }
-                
+
                 _Physics.Step();
             }
         }
@@ -610,7 +640,111 @@ namespace GameLogic
             }
         }
 
-        #endregion Bomb
+        private void TrySpawnBonus(Vector2 position, Messages.ExplosionResult explosionResult)
+        {
+            double bonusRandom = _Random.NextDouble();
+            if (bonusRandom > 0.6d) return;
+
+            // Power bonus
+            if (_Random.NextDouble() <= 0.5d)
+            {
+                SpawnBonus(position, Game.BonusType.Power);
+                explosionResult.BonusesSpawned.Add(position, Game.BonusType.Power);
+            }
+            // Additional bomb bonus
+            else if (_Random.NextDouble() <= 0.5d)
+            {
+                SpawnBonus(position, Game.BonusType.Bomb);
+                explosionResult.BonusesSpawned.Add(position, Game.BonusType.Bomb);
+            }
+            // Detonator bonus
+            else
+            {
+                SpawnBonus(position, Game.BonusType.Detonator);
+                explosionResult.BonusesSpawned.Add(position, Game.BonusType.Detonator);
+            }
+        }
+
+        private void SpawnBonus(Vector2 position, Game.BonusType bonusType)
+        {
+            IPhysicsObject bonus = _Physics.CreatePhysicsObject(BodyType.Static, position, 0);
+            bonus.UserData = new Game.PhysicsObjectId
+            {
+                ObjectType = Game.ObjectType.Bonus,
+                Id         = (uint)bonusType
+            };
+            ICollider collider = bonus.AddCircleCollider(0.4f);
+            collider.IsSensor = true;
+
+            _Bonuses.Add(position, new GameObject
+            {
+                PhysicsObj     = bonus,
+                Owner          = -1,
+                Collisions     = 0,
+                Power          = 0,
+                FrameToDestroy = UInt32.MaxValue
+            });
+        }
+
+        private void BonusCollisionEnter(ICollisionData collisionData)
+        {
+            Game.PhysicsObjectId idA = (Game.PhysicsObjectId)collisionData.PhysicsObjectA.UserData;
+            Game.PhysicsObjectId idB = (Game.PhysicsObjectId)collisionData.PhysicsObjectB.UserData;
+
+            if (idA.ObjectType == Game.ObjectType.Player && idB.ObjectType == Game.ObjectType.Bonus)
+            {
+                byte           playerId      = (byte)idA.Id;
+                Game.BonusType bonusType     = (Game.BonusType)idB.Id;
+                Vector2        bonusPosition = collisionData.PhysicsObjectB.Position;
+                ApplyBonus(playerId, bonusType, bonusPosition);
+                return;
+            }
+
+            if (idA.ObjectType == Game.ObjectType.Bonus && idB.ObjectType == Game.ObjectType.Player)
+            {
+                byte           playerId      = (byte)idB.Id;
+                Game.BonusType bonusType     = (Game.BonusType)idA.Id;
+                Vector2        bonusPosition = collisionData.PhysicsObjectA.Position;
+                ApplyBonus(playerId, bonusType, bonusPosition);
+            }
+
+            void ApplyBonus(byte playerId, Game.BonusType bonusType, Vector2 bonusPosition)
+            {
+                if (_Bonuses[bonusPosition].FrameToDestroy == 0) return;
+
+                switch (bonusType)
+                {
+                    case Game.BonusType.Power:
+                    {
+                        ++_Players[playerId].Power;
+                        break;
+                    }
+                    case Game.BonusType.Bomb:
+                    {
+                        ++_Players[playerId].MaxBombs;
+                        break;
+                    }
+                    case Game.BonusType.Detonator:
+                    {
+                        _Players[playerId].HasDetonator = true;
+                        break;
+                    }
+                }
+
+                _Bonuses[bonusPosition].FrameToDestroy = 0;
+
+                Messages.BonusTaken bonusTaken = new Messages.BonusTaken
+                {
+                    Position  = bonusPosition,
+                    PlayerId  = playerId,
+                    BonusType = bonusType
+                };
+
+                SendMessageToAllPlayers(bonusTaken);
+            }
+        }
+
+        #endregion Bomb & Bonuses
 
         #region Messages
 
@@ -803,7 +937,7 @@ namespace GameLogic
             }
         }
 
-        private IPhysicsObject SpawnPlayer(byte id, Physics2D physics2D)
+        private (IPhysicsObject, ICollider) SpawnPlayer(byte id, Physics2D physics2D)
         {
             IPhysicsObject player = physics2D.CreatePhysicsObject(BodyType.Dynamic, Game.PlayersSpawnPoints[id], 0);
             player.FixedRotation = true;
@@ -812,8 +946,8 @@ namespace GameLogic
                 ObjectType = Game.ObjectType.Player,
                 Id         = id
             };
-            player.AddCircleCollider(0.4f);
-            return player;
+            ICollider collider = player.AddCircleCollider(0.4f);
+            return (player, collider);
         }
 
         #endregion Physics

@@ -48,7 +48,7 @@ namespace GameLogic
         private readonly GameLogic _GameLogic;
 
         private const ushort _ServerTicksPerSecond = 15;
-        private const ushort _ServerTickLogEveryX  = _ServerTicksPerSecond * 5;
+        private const ushort _ServerTickLogEveryX  = _ServerTicksPerSecond * 30;
 
         #endregion Variables
 

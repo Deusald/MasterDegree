@@ -50,8 +50,6 @@ namespace MasterDegree
             public IPhysicsObject PhysicsObj       { get; set; }
             public GameObject     VisualGameObject { get; set; }
             public uint           FrameToDestroy   { get; set; }
-            public sbyte          Owner            { get; set; }
-            public byte           Power            { get; set; }
             public bool           Confirmed        { get; set; }
             public int            Collisions       { get; set; }
 
@@ -68,7 +66,6 @@ namespace MasterDegree
 
         private class Player
         {
-            public byte              Id                                { get; }
             public IPhysicsObject    PhysicsObj                        { get; set; }
             public GameObject        VisualGameObject                  { get; set; }
             public bool              IsDead                            { get; set; }
@@ -79,9 +76,8 @@ namespace MasterDegree
             public HashSet<DVector2> Bombs                             { get; }
             public int               MaxBombs                          { get; set; }
 
-            public Player(byte id)
+            public Player()
             {
-                Id       = id;
                 IsDead   = false;
                 Bombs    = new HashSet<DVector2>();
                 MaxBombs = 1;
@@ -129,6 +125,8 @@ namespace MasterDegree
         [SerializeField] private GameObject      _BombPrefab;
         [SerializeField] private Transform       _BombsParent;
         [SerializeField] private GameObject      _ExplosionPrefab;
+        [SerializeField] private GameObject      _BonusPrefab;
+        [SerializeField] private Transform       _BonusesParent;
 
         private DrClient                               _Client;
         private Physics2DControl                       _Physics;
@@ -144,6 +142,7 @@ namespace MasterDegree
         private AwaitingInputs                         _AwaitingInputs;
         private Dictionary<DVector2, ServerGameObject> _DestroyableWalls;
         private Dictionary<DVector2, ServerGameObject> _Bombs;
+        private Dictionary<DVector2, ServerGameObject> _Bonuses;
 
         private const int   _FramesPerSecond = 15;
         private const float _FixedDeltaTime  = 1f / _FramesPerSecond;
@@ -166,6 +165,7 @@ namespace MasterDegree
             _Inputs           = new Inputs();
             _DestroyableWalls = new Dictionary<DVector2, ServerGameObject>();
             _Bombs            = new Dictionary<DVector2, ServerGameObject>();
+            _Bonuses          = new Dictionary<DVector2, ServerGameObject>();
 
             GetTimeOffset();
         }
@@ -229,7 +229,7 @@ namespace MasterDegree
         {
             DateTime currentTime                 = DateTime.UtcNow + _OffsetFromCorrectTime;
             double   millisecondsFromServerStart = (currentTime - _ServerStartTime).TotalMilliseconds;
-            return (uint)Math.Floor((millisecondsFromServerStart / (_FixedDeltaTime * DeusaldSharp.MathUtils.SecToMilliseconds)));
+            return (uint)Math.Floor((millisecondsFromServerStart / (_FixedDeltaTime * MathUtils.SecToMilliseconds)));
         }
 
         private uint GetCurrentClientFrame()
@@ -287,8 +287,6 @@ namespace MasterDegree
                 {
                     PhysicsObj       = wall,
                     VisualGameObject = visualWall,
-                    Owner            = -1,
-                    Power            = 0,
                     FrameToDestroy   = uint.MaxValue,
                     Confirmed        = true
                 };
@@ -609,6 +607,13 @@ namespace MasterDegree
                             ExplosionResultMessage(msg);
                             break;
                         }
+                        case (ushort)Messages.MessageId.BonusTaken:
+                        {
+                            Messages.BonusTaken msg = new Messages.BonusTaken();
+                            msg.Read(reader);
+                            BonusTakenMessage(msg);
+                            break;
+                        }
                     }
                 }
             }
@@ -646,7 +651,7 @@ namespace MasterDegree
             {
                 if (_Players[i] != null) continue;
 
-                Player player = new Player((byte)i)
+                Player player = new Player
                 {
                     PhysicsObj = SpawnPlayer((byte)i, _Physics),
                     IsDead     = false
@@ -692,12 +697,11 @@ namespace MasterDegree
                 {
                     _Bombs[msg.Position].Confirmed      = true;
                     _Bombs[msg.Position].FrameToDestroy = msg.FrameToDestroy;
-                    _Bombs[msg.Position].Power          = msg.Power;
                     return;
                 }
             }
 
-            PutBomb((sbyte)msg.PlayerId, false, msg.Position, msg.FrameToDestroy, msg.Power);
+            PutBomb((sbyte)msg.PlayerId, false, msg.Position, msg.FrameToDestroy);
         }
 
         private void ExplosionResultMessage(Messages.ExplosionResult msg)
@@ -718,18 +722,17 @@ namespace MasterDegree
                 _Players[playerKilled].IsDead                                                = true;
             }
             
-            // TODO
-            /*foreach (Vector3 position in msg.BonusesDestroyed)
+            foreach (DVector2 position in msg.BonusesDestroyed)
             {
+                if (!_Bonuses.ContainsKey(position)) continue;
                 _Bonuses[position].Destroy();
                 _Bonuses.Remove(position);
-            }*/
+            }
             
-            // TODO
-            /*foreach (var pair in msg.BonusesSpawned)
+            foreach (var pair in msg.BonusesSpawned)
             {
                 SpawnBonus(pair.Key, pair.Value);
-            }*/
+            }
 
             if (_Bombs.ContainsKey(msg.BombPosition))
             {
@@ -746,6 +749,17 @@ namespace MasterDegree
             Explode(msg);
         }
 
+        private void BonusTakenMessage(Messages.BonusTaken bonusTaken)
+        {
+            if (bonusTaken.BonusType == Game.BonusType.Bomb && bonusTaken.PlayerId == _MyPlayerId)
+            {
+                ++_Players[_MyPlayerId].MaxBombs;
+            }
+            
+            _Bonuses[bonusTaken.Position].Destroy();
+            _Bonuses.Remove(bonusTaken.Position);
+        }
+        
         #endregion Messages
 
         #region Bombs And Bonuses
@@ -776,7 +790,7 @@ namespace MasterDegree
             bomb.IsSensor = false;
         }
 
-        private void PutBomb(sbyte playerId, bool simulatedBomb, DVector2 bombPos, uint frameToDestroy = 0, byte power = 0)
+        private void PutBomb(sbyte playerId, bool simulatedBomb, DVector2 bombPos, uint frameToDestroy = 0)
         {
             if (simulatedBomb && _Players[playerId].IsDead) return;
             if (simulatedBomb && _Players[playerId].Bombs.Count == _Players[playerId].MaxBombs) return;
@@ -838,9 +852,7 @@ namespace MasterDegree
                 PhysicsObj       = physicsBomb,
                 VisualGameObject = bomb,
                 FrameToDestroy   = frameToDestroy,
-                Confirmed        = !simulatedBomb,
-                Owner            = playerId,
-                Power            = power
+                Confirmed        = !simulatedBomb
             };
 
             _Bombs.Add(bombPos, serverBomb);
@@ -864,10 +876,47 @@ namespace MasterDegree
             for (float z = -explosionResult.DownDistance; z <= explosionResult.UpDistance; ++z)
             {
                 Vector3 explosionPosition = new Vector3(explosionResult.BombPosition.x, 0.5f, explosionResult.BombPosition.y);
-                ;
                 explosionPosition.z += z;
                 Instantiate(_ExplosionPrefab, explosionPosition, Quaternion.identity);
             }
+        }
+        
+        private void SpawnBonus(DVector2 position, Game.BonusType bonusType)
+        {
+            GameObject   bonus        = Instantiate(_BonusPrefab, new Vector3(position.x, 0.5f, position.y), Quaternion.identity);
+            bonus.transform.SetParent(_BonusesParent, true);
+            MeshRenderer meshRenderer = bonus.GetComponent<MeshRenderer>();
+            Material     newMaterial  = new Material(meshRenderer.material);
+
+            switch (bonusType)
+            {
+                case Game.BonusType.Power:
+                {
+                    newMaterial.color = Color.yellow;
+                    break;
+                }
+                case Game.BonusType.Bomb:
+                {
+                    newMaterial.color = Color.red;
+                    break;
+                }
+                case Game.BonusType.Detonator:
+                {
+                    newMaterial.color = Color.cyan;
+                    break;
+                }
+            }
+
+            meshRenderer.material = newMaterial;
+            
+            _Bonuses.Add(position, new ServerGameObject
+            {
+                PhysicsObj       = null,
+                VisualGameObject = bonus,
+                Confirmed        = true,
+                Collisions       = 0,
+                FrameToDestroy   = UInt32.MaxValue
+            });
         }
 
         #endregion Bombs And Bonuses
