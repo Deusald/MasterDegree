@@ -62,7 +62,7 @@ namespace GameLogicCommon
             {
                 // Save sending one byte by encoding WallSpawned state inside YourId byte.
                 byte yourId = YourId;
-                yourId = yourId.MarkBit(4, WallSpawned);
+                yourId = yourId.MarkBit(1 << 2, WallSpawned);
 
                 writer.Write(yourId);
                 writer.Write(ServerClockStartTimer);
@@ -71,8 +71,8 @@ namespace GameLogicCommon
             public void Read(DarkRiftReader reader)
             {
                 byte yourId = reader.ReadByte();
-                WallSpawned           = yourId.HasAnyBitOn(4);
-                yourId                = yourId.MarkBit(4, false);
+                WallSpawned           = yourId.HasAnyBitOn(1 << 2);
+                yourId                = yourId.MarkBit(1 << 2, false);
                 YourId                = yourId;
                 ServerClockStartTimer = reader.ReadInt64();
             }

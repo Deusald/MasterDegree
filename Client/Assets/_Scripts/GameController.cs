@@ -42,7 +42,7 @@ namespace MasterDegree
 
         private class ServerGameObject
         {
-            public Rigidbody2D PhysicsObj   { get; set; }
+            public Rigidbody2D PhysicsObj       { get; set; }
             public GameObject  VisualGameObject { get; set; }
             public uint        FrameToDestroy   { get; set; }
             public sbyte       Owner            { get; set; }
@@ -61,11 +61,10 @@ namespace MasterDegree
         private class Player
         {
             public byte        Id                                { get; }
-            public Rigidbody2D MainPhysicsObj                    { get; set; }
+            public Rigidbody2D PhysicsObj                        { get; set; }
             public GameObject  VisualGameObject                  { get; set; }
             public bool        IsDead                            { get; set; }
             public Vector2     LastPosition                      { get; set; }
-            public Vector2     CurrentPosition                   { get; set; }
             public Vector2     LastPositionReceivedFromServer    { get; set; }
             public Vector2     LastPreviousDirReceivedFromServer { get; set; }
             public uint        FrameOfLastReceivedDataFromServer { get; set; }
@@ -211,7 +210,7 @@ namespace MasterDegree
         {
             DateTime currentTime                 = DateTime.UtcNow + _OffsetFromCorrectTime;
             double   millisecondsFromServerStart = (currentTime - _ServerStartTime).TotalMilliseconds;
-            return (uint)Math.Floor(millisecondsFromServerStart / (_FixedDeltaTime * DeusaldSharp.MathUtils.SecToMilliseconds));
+            return (uint)Math.Floor((millisecondsFromServerStart / (_FixedDeltaTime * DeusaldSharp.MathUtils.SecToMilliseconds)));
         }
 
         private uint GetCurrentClientFrame()
@@ -234,8 +233,8 @@ namespace MasterDegree
             Physics2D.simulationMode = SimulationMode2D.Script;
 
             CreateSceneParameters csp = new CreateSceneParameters(LocalPhysicsMode.Physics2D);
-            _Physics.PhysicsScene     = SceneManager.CreateScene("PhysicsScene", csp);
-            _Physics.Physics          = _Physics.PhysicsScene.GetPhysicsScene2D();
+            _Physics.PhysicsScene = SceneManager.CreateScene("PhysicsScene", csp);
+            _Physics.Physics      = _Physics.PhysicsScene.GetPhysicsScene2D();
 
             InitOuterWalls();
             FillInnerWalls();
@@ -243,7 +242,7 @@ namespace MasterDegree
 
         private void SpawnDestroyableWalls()
         {
-            Game.PhysicsObjectId objectId = new Game.PhysicsObjectId
+           /* Game.PhysicsObjectId objectId = new Game.PhysicsObjectId
             {
                 Id         = 0,
                 ObjectType = Game.ObjectType.DestroyableWall
@@ -258,7 +257,7 @@ namespace MasterDegree
 
                 _DestroyableWalls[vector2] = new ServerGameObject
                 {
-                    PhysicsObj   = mainWall,
+                    PhysicsObj       = mainWall,
                     VisualGameObject = visualWall,
                     Owner            = -1,
                     Power            = 0,
@@ -283,7 +282,7 @@ namespace MasterDegree
                     physicsObjectData.PhysicsObjectId = objectId;
                     return rigidbody2d;
                 }
-            });
+            });*/
         }
 
         #endregion Init
@@ -375,7 +374,7 @@ namespace MasterDegree
         private void Reconciliation()
         {
             uint frameToCheck = _Players[_MyPlayerId].FrameOfLastReceivedDataFromServer;
-            
+
             if (!_Inputs.Positions.ContainsKey(frameToCheck)) return;
 
             Vector2 predictedPosition = _Inputs.Positions[frameToCheck];
@@ -383,10 +382,10 @@ namespace MasterDegree
 
             float missPredictionDistance = Vector2.Distance(predictedPosition, serverPosition);
             
-            if (missPredictionDistance <= 0.1f) return;
+            if (missPredictionDistance <= 0.01f) return;
 
-            _Inputs.Positions[frameToCheck]               = serverPosition;
-            _Players[_MyPlayerId].MainPhysicsObj.position = serverPosition;
+            _Inputs.Positions[frameToCheck]           = serverPosition;
+            _Players[_MyPlayerId].PhysicsObj.position = serverPosition;
             _Physics.Physics.Simulate(_FixedDeltaTime);
 
             uint frame     = frameToCheck;
@@ -395,9 +394,9 @@ namespace MasterDegree
             for (; frame <= lastFrame; ++frame)
             {
                 if (!_Inputs.StoredInputs.ContainsKey(frame)) continue;
-                Vector2 position  = _Players[_MyPlayerId].MainPhysicsObj.position;
+                Vector2 position  = _Players[_MyPlayerId].PhysicsObj.position;
                 Vector2 direction = new Vector2(_Inputs.StoredInputs[frame].Direction.x, _Inputs.StoredInputs[frame].Direction.y);
-                _Players[_MyPlayerId].MainPhysicsObj.MovePosition(position + direction * (_FixedDeltaTime * Game.PlayerSpeed));
+                _Players[_MyPlayerId].PhysicsObj.MovePosition(position + direction * (_FixedDeltaTime * Game.PlayerSpeed));
                 _Physics.Physics.Simulate(_FixedDeltaTime);
             }
         }
@@ -436,15 +435,25 @@ namespace MasterDegree
 
             SendInput();
 
-            Vector2 position  = _Players[_MyPlayerId].MainPhysicsObj.position;
+            Vector2 position  = _Players[_MyPlayerId].PhysicsObj.position;
             Vector2 direction = new Vector2(newInput.Direction.x, newInput.Direction.y);
-            _Players[_MyPlayerId].MainPhysicsObj.MovePosition(position + direction * (_FixedDeltaTime * Game.PlayerSpeed));
+            _Players[_MyPlayerId].PhysicsObj.MovePosition(position + direction * (_FixedDeltaTime * Game.PlayerSpeed));
+            _Players[_MyPlayerId].LastPosition = _Players[_MyPlayerId].PhysicsObj.position;
+            Debug.Log(_Players[_MyPlayerId].PhysicsObj.position);
+
+            if (newInput.PutBomb)
+            {
+                PutBomb(_MyPlayerId, true, Vector2.zero);
+            }
+
+            UpdateOtherPlayers();
+            RemoveMyNotConfirmedBombs();
+            AnimateBombsThatExpired();
 
             _Physics.Physics.Simulate(_FixedDeltaTime);
-            Vector2 nextPosition = _Players[_MyPlayerId].MainPhysicsObj.position;
-            _Inputs.Positions[frame]              = nextPosition;
-            _Players[_MyPlayerId].LastPosition    = _Players[_MyPlayerId].CurrentPosition;
-            _Players[_MyPlayerId].CurrentPosition = nextPosition;
+
+            Vector2 nextPosition = _Players[_MyPlayerId].PhysicsObj.position;
+            _Inputs.Positions[frame] = nextPosition;
         }
 
         private void SendInput()
@@ -467,6 +476,42 @@ namespace MasterDegree
             }
         }
 
+        private void UpdateOtherPlayers()
+        {
+            for (int i = 0; i < _Players.Length; ++i)
+            {
+                if (i == _MyPlayerId) continue;
+                if (_Players[i] == null) continue;
+
+                float distanceToLastKnownPosition = Vector2.Distance(_Players[i].PhysicsObj.position, _Players[i].LastPositionReceivedFromServer);
+
+                if (distanceToLastKnownPosition >= 1f)
+                {
+                    // Something went wrong -> we shouldn't be that far from server position
+                    _Players[i].PhysicsObj.position = _Players[i].LastPositionReceivedFromServer;
+                }
+                else
+                {
+                    // Extrapolate player position
+                    _Players[i].LastPosition = _Players[i].PhysicsObj.position;
+                    Vector2 newPlayerPosition = _Players[i].LastPositionReceivedFromServer;
+                    newPlayerPosition += _Players[i].LastPreviousDirReceivedFromServer *
+                                         ((_MyCurrentFrame - _Players[i].FrameOfLastReceivedDataFromServer) * _FixedDeltaTime * Game.PlayerSpeed);
+                    _Players[i].PhysicsObj.MovePosition(newPlayerPosition);
+                }
+            }
+        }
+
+        private void RemoveMyNotConfirmedBombs()
+        {
+            
+        }
+
+        private void AnimateBombsThatExpired()
+        {
+            
+        }
+
         private void MoveVisualRepresentations()
         {
             float percentToNextFrame = _TimeToNextFrame / _FixedDeltaTime;
@@ -474,7 +519,8 @@ namespace MasterDegree
             for (int i = 0; i < _Players.Length; ++i)
             {
                 if (_Players[i] == null) continue;
-                Vector2 position = Vector2.Lerp(_Players[i].LastPosition, _Players[i].CurrentPosition, percentToNextFrame);
+                // Interpolate players position based on last and current position using time between physics updates
+                Vector2 position = Vector2.Lerp(_Players[i].LastPosition, _Players[i].PhysicsObj.position, percentToNextFrame);
                 _Players[i].VisualGameObject.transform.position = new Vector3(position.x, 1f, position.y);
             }
         }
@@ -564,8 +610,8 @@ namespace MasterDegree
 
                 Player player = new Player((byte)i)
                 {
-                    MainPhysicsObj = SpawnPlayer((byte)i, _Physics.PhysicsScene),
-                    IsDead         = false
+                    PhysicsObj = SpawnPlayer((byte)i, _Physics.PhysicsScene),
+                    IsDead     = false
                 };
 
                 GameObject playerVisual = Instantiate(_PlayerPrefab, new Vector3(Game.PlayersSpawnPoints[i].x, 1f, Game.PlayersSpawnPoints[i].y),
@@ -578,8 +624,7 @@ namespace MasterDegree
                 newMaterial.color     = _PlayersColors[i];
                 meshRenderer.material = newMaterial;
 
-                player.CurrentPosition = player.MainPhysicsObj.position;
-                player.LastPosition    = player.CurrentPosition;
+                player.LastPosition = player.PhysicsObj.position;
 
                 _Players[i] = player;
             }
@@ -594,6 +639,12 @@ namespace MasterDegree
 
         #endregion Messages
 
+        #region Bombs And Bonuses
+
+        private void PutBomb(int playerId, bool simulatedBomb, Vector2 bombPos, int frameToDestroy = 0, int power = 0) { }
+
+        #endregion Bombs And Bonuses
+
         #region Physics
 
         private void InitOuterWalls()
@@ -603,7 +654,7 @@ namespace MasterDegree
                 Id         = 0,
                 ObjectType = Game.ObjectType.StaticWall
             };
-            
+
             CreateWall(new Vector2(-3.5f, -3.5f), new Vector2(-3.5f, 3.5f), "Left", _Physics.PhysicsScene);
             CreateWall(new Vector2(3.5f, -3.5f), new Vector2(3.5f, 3.5f), "Right", _Physics.PhysicsScene);
             CreateWall(new Vector2(-3.5f, 3.5f), new Vector2(3.5f, 3.5f), "Up", _Physics.PhysicsScene);
@@ -672,9 +723,9 @@ namespace MasterDegree
             SceneManager.MoveGameObjectToScene(player, scene);
             player.transform.position = new Vector2(Game.PlayersSpawnPoints[id].x, Game.PlayersSpawnPoints[id].y);
             Rigidbody2D rigidbody2d = player.AddComponent<Rigidbody2D>();
-            rigidbody2d.bodyType    = RigidbodyType2D.Dynamic;
-            rigidbody2d.constraints = RigidbodyConstraints2D.FreezeRotation;
-            rigidbody2d.drag        = 100;
+            rigidbody2d.bodyType               = RigidbodyType2D.Dynamic;
+            rigidbody2d.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            rigidbody2d.constraints            = RigidbodyConstraints2D.FreezeRotation;
             CircleCollider2D collider2d = player.AddComponent<CircleCollider2D>();
             collider2d.radius = 0.4f;
             PhysicsObjectData physicsObjectData = player.AddComponent<PhysicsObjectData>();

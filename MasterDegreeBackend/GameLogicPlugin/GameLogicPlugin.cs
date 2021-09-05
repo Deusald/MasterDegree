@@ -59,6 +59,7 @@ namespace GameLogic
             _Logger    = Logger;
             _GameLogic = new GameLogic(_Logger, _ServerTicksPerSecond);
             StartServerClock();
+            _GameLogic.ServerClockStartTime              =  _ServerClockStartTime;
             pluginLoadData.ClientManager.ClientConnected += OnClientConnected;
         }
 
