@@ -21,6 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.Collections.Generic;
 using DarkRift;
 using DeusaldSharp;
 
@@ -43,7 +44,9 @@ namespace GameLogicCommon
             ServerHeartBeat,
             PlayerInit,
             SpawnPlayer,
-            StartGame
+            StartGame,
+            PlayerInput,
+            PlayerPosition
         }
 
         public class PlayerInitMsg : INetMessage
@@ -68,8 +71,8 @@ namespace GameLogicCommon
             public void Read(DarkRiftReader reader)
             {
                 byte yourId = reader.ReadByte();
-                WallSpawned = yourId.HasAnyBitOn(4);
-                yourId = yourId.MarkBit(4, false);
+                WallSpawned           = yourId.HasAnyBitOn(4);
+                yourId                = yourId.MarkBit(4, false);
                 YourId                = yourId;
                 ServerClockStartTimer = reader.ReadInt64();
             }
@@ -90,6 +93,83 @@ namespace GameLogicCommon
             public void Read(DarkRiftReader reader)
             {
                 PlayerId = reader.ReadByte();
+            }
+        }
+
+        public class PlayerInputMsg : INetMessage
+        {
+            public MessageId MessageId  => MessageId.PlayerInput;
+            public bool      IsFrequent => true;
+
+            public Dictionary<uint, Game.PlayerInput> StoredInputs     { get; set; }
+            public uint                               LastInputFrame   { get; set; }
+            public uint                               OldestInputFrame { get; set; }
+
+            public void Write(DarkRiftWriter writer)
+            {
+                writer.Write(LastInputFrame);
+                writer.Write(OldestInputFrame);
+
+                for (uint i = OldestInputFrame; i <= LastInputFrame; ++i)
+                {
+                    writer.Write(StoredInputs[i].Direction.x);
+                    writer.Write(StoredInputs[i].Direction.y);
+
+                    byte buttonStates = 0;
+                    buttonStates = buttonStates.MarkBit(1 << 0, StoredInputs[i].PutBomb);
+                    buttonStates = buttonStates.MarkBit(1 << 1, StoredInputs[i].Detonate);
+                    writer.Write(buttonStates);
+                }
+            }
+
+            public void Read(DarkRiftReader reader)
+            {
+                StoredInputs     = new Dictionary<uint, Game.PlayerInput>();
+                LastInputFrame   = reader.ReadUInt32();
+                OldestInputFrame = reader.ReadUInt32();
+
+                for (uint i = OldestInputFrame; i <= LastInputFrame; ++i)
+                {
+                    Game.PlayerInput playerInput = new Game.PlayerInput
+                    {
+                        Frame     = i,
+                        Direction = new Vector2(reader.ReadSingle(), reader.ReadSingle())
+                    };
+
+                    byte buttonStates = reader.ReadByte();
+                    playerInput.PutBomb  = buttonStates.HasAnyBitOn(1 << 0);
+                    playerInput.Detonate = buttonStates.HasAnyBitOn(1 << 1);
+                    StoredInputs.Add(i, playerInput);
+                }
+            }
+        }
+
+        public class PlayerPositionMsg : INetMessage
+        {
+            public MessageId MessageId  => MessageId.PlayerPosition;
+            public bool      IsFrequent => true;
+
+            public byte    PlayerId    { get; set; }
+            public uint    Frame       { get; set; }
+            public Vector2 Position    { get; set; }
+            public Vector2 PreviousDir { get; set; }
+
+            public void Write(DarkRiftWriter writer)
+            {
+                writer.Write(PlayerId);
+                writer.Write(Frame);
+                writer.Write(Position.x);
+                writer.Write(Position.y);
+                writer.Write(PreviousDir.x);
+                writer.Write(PreviousDir.y);
+            }
+
+            public void Read(DarkRiftReader reader)
+            {
+                PlayerId    = reader.ReadByte();
+                Frame       = reader.ReadUInt32();
+                Position    = new Vector2(reader.ReadSingle(), reader.ReadSingle());
+                PreviousDir = new Vector2(reader.ReadSingle(), reader.ReadSingle());
             }
         }
     }

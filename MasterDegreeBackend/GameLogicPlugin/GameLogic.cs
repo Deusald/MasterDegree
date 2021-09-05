@@ -38,14 +38,23 @@ namespace GameLogic
 
         public class Player
         {
-            public byte           Id                { get; }
-            public IClient        Client            { get; set; }
-            public IPhysicsObject MainPhysicsObj    { get; set; }
-            public IPhysicsObject LagCompPhysicsObj { get; set; }
+            public byte                               Id                  { get; }
+            public IClient                            Client              { get; set; }
+            public IPhysicsObject                     MainPhysicsObj      { get; set; }
+            public IPhysicsObject                     LagCompPhysicsObj   { get; set; }
+            public bool                               IsDead              { get; set; }
+            public bool                               HasDetonator        { get; set; }
+            public Dictionary<uint, Game.PlayerInput> Inputs              { get; }
+            public Dictionary<uint, Vector2>          Positions           { get; }
+            public uint                               OldestPositionFrame { get; set; }
 
             public Player(byte id)
             {
-                Id = id;
+                Id                  = id;
+                IsDead              = false;
+                Inputs              = new Dictionary<uint, Game.PlayerInput>();
+                Positions           = new Dictionary<uint, Vector2>();
+                OldestPositionFrame = uint.MaxValue;
             }
         }
 
@@ -123,9 +132,12 @@ namespace GameLogic
                 {
                     _SimulationAccumulatedTime -= _FixedDeltaTime;
                     ++_PhysicsTickNumber;
-                    // Process player input
+                    ProcessPlayersInputs();
                     FixedUpdate();
                     _MainPhysics.Step();
+                    StoreAllPlayerCurrentPositions();
+                    ExplodeAllExpiredBombs();
+                    SendAllPlayersPositions();
                 }
             }
         }
@@ -221,12 +233,87 @@ namespace GameLogic
             });
         }
 
+        #endregion Init
+
+        #region Update
+
+        private void ProcessPlayersInputs()
+        {
+            foreach (Player player in _Players)
+            {
+                // If we don't have input from that player for current processed frame we must skip him
+                if (!player.Inputs.ContainsKey(_PhysicsTickNumber)) continue;
+                if (player.IsDead) continue;
+
+                // Move player in direction
+                Vector2 dir = player.Inputs[_PhysicsTickNumber].Direction;
+                dir *= _FixedDeltaTime * Game.PlayerSpeed;
+                player.MainPhysicsObj.MovePosition(player.MainPhysicsObj.Position + dir);
+
+                if (player.Inputs[_PhysicsTickNumber].PutBomb)
+                {
+                    // PutBomb
+                }
+
+                // Detonate all our bombs if player send detonator signal in this frame
+                if (player.HasDetonator && player.Inputs[_PhysicsTickNumber].Detonate)
+                {
+                    // Detonate all bombs
+                }
+
+                player.Inputs.Remove(_PhysicsTickNumber);
+            }
+        }
+
+        private void StoreAllPlayerCurrentPositions()
+        {
+            // We are storing those positions for lag compensation
+            foreach (Player player in _Players)
+            {
+                player.Positions[_PhysicsTickNumber] = player.MainPhysicsObj.Position;
+
+                if (_PhysicsTickNumber < player.OldestPositionFrame)
+                {
+                    player.OldestPositionFrame = _PhysicsTickNumber;
+                }
+
+                // We store only two seconds of previous positions
+                while (player.Positions.Count > _NumberOfFramesPerSecond * 2)
+                {
+                    if (player.Positions.ContainsKey(player.OldestPositionFrame))
+                    {
+                        player.Positions.Remove(player.OldestPositionFrame);
+                    }
+
+                    ++player.OldestPositionFrame;
+                }
+            }
+        }
+
+        private void ExplodeAllExpiredBombs() { }
+
+        private void SendAllPlayersPositions()
+        {
+            foreach (Player player in _Players)
+            {
+                Messages.PlayerPositionMsg msg = new Messages.PlayerPositionMsg
+                {
+                    PlayerId    = player.Id,
+                    Frame       = _PhysicsTickNumber,
+                    Position    = player.MainPhysicsObj.Position,
+                    PreviousDir = player.Inputs.ContainsKey(_PhysicsTickNumber) ? player.Inputs[_PhysicsTickNumber].Direction : Vector2.Zero
+                };
+                
+                SendMessageToAllPlayers(msg);
+            }
+        }
+
         private void FixedUpdate()
         {
             SendHeartBeat();
         }
 
-        #endregion Init
+        #endregion Update
 
         #region Messages
 
@@ -279,7 +366,7 @@ namespace GameLogic
         {
             using (DarkRiftWriter messageWriter = DarkRiftWriter.Create())
             {
-                using (Message netMessage = Message.Create((ushort) Messages.MessageId.StartGame, messageWriter))
+                using (Message netMessage = Message.Create((ushort)Messages.MessageId.StartGame, messageWriter))
                 {
                     foreach (Player player in _Players)
                         player.Client.SendMessage(netMessage, SendMode.Reliable);
@@ -323,9 +410,30 @@ namespace GameLogic
                                 SendStartMessage();
                                 break;
                             }
+                            case (ushort)Messages.MessageId.PlayerInput:
+                            {
+                                if (!_ClientIdToPlayerId.ContainsKey(e.Client.ID)) break;
+                                Messages.PlayerInputMsg msg = new Messages.PlayerInputMsg();
+                                msg.Read(reader);
+                                PlayerInputReceived(msg, _ClientIdToPlayerId[e.Client.ID]);
+                                break;
+                            }
                         }
                     }
                 }
+            }
+        }
+
+        private void PlayerInputReceived(Messages.PlayerInputMsg msg, byte playerId)
+        {
+            if (_Players[playerId].IsDead) return;
+
+            for (uint i = msg.OldestInputFrame; i <= msg.LastInputFrame; ++i)
+            {
+                if (_Players[playerId].Inputs.ContainsKey(i)) continue;
+                if (!msg.StoredInputs.ContainsKey(i)) continue;
+                if (i <= _PhysicsTickNumber) continue;
+                _Players[playerId].Inputs.Add(i, msg.StoredInputs[i]);
             }
         }
 
@@ -357,7 +465,7 @@ namespace GameLogic
             downWall.UserData = objectId;
             downWall.AddEdgeCollider(new Vector2(-3.5f, -3.5f), new Vector2(3.5f, -3.5f));
         }
-        
+
         private void FillInnerWalls(Physics2D physics)
         {
             Game.PhysicsObjectId objectId = new Game.PhysicsObjectId
@@ -376,7 +484,7 @@ namespace GameLogic
                 }
             }
         }
-        
+
         private IPhysicsObject SpawnPlayer(byte id, Physics2D physics2D)
         {
             IPhysicsObject player = physics2D.CreatePhysicsObject(BodyType.Dynamic, Game.PlayersSpawnPoints[id], 0);
@@ -390,7 +498,7 @@ namespace GameLogic
         }
 
         #endregion Physics
-        
+
         #endregion Private Methods
     }
 }

@@ -42,47 +42,45 @@ namespace MasterDegree
 
         private class ServerGameObject
         {
-            public Rigidbody2D MainPhysicsObj      { get; set; }
-            public Rigidbody2D ServerRecPhysicsObj { get; set; }
-            public GameObject  VisualGameObject    { get; set; }
-            public uint        FrameToDestroy      { get; set; }
-            public sbyte       Owner               { get; set; }
-            public byte        Power               { get; set; }
-            public bool        Confirmed           { get; set; }
+            public Rigidbody2D PhysicsObj   { get; set; }
+            public GameObject  VisualGameObject { get; set; }
+            public uint        FrameToDestroy   { get; set; }
+            public sbyte       Owner            { get; set; }
+            public byte        Power            { get; set; }
+            public bool        Confirmed        { get; set; }
 
             public void Destroy()
             {
-                if (MainPhysicsObj != null)
+                if (PhysicsObj != null)
                 {
-                    Object.Destroy(MainPhysicsObj.gameObject);
-                }
-
-                if (ServerRecPhysicsObj != null)
-                {
-                    Object.Destroy(ServerRecPhysicsObj.gameObject);
+                    Object.Destroy(PhysicsObj.gameObject);
                 }
             }
         }
 
         private class Player
         {
-            public byte        Id                  { get; }
-            public Rigidbody2D MainPhysicsObj      { get; set; }
-            public Rigidbody2D ServerRecPhysicsObj { get; set; }
-            public GameObject  VisualGameObject    { get; set; }
+            public byte        Id                                { get; }
+            public Rigidbody2D MainPhysicsObj                    { get; set; }
+            public GameObject  VisualGameObject                  { get; set; }
+            public bool        IsDead                            { get; set; }
+            public Vector2     LastPosition                      { get; set; }
+            public Vector2     CurrentPosition                   { get; set; }
+            public Vector2     LastPositionReceivedFromServer    { get; set; }
+            public Vector2     LastPreviousDirReceivedFromServer { get; set; }
+            public uint        FrameOfLastReceivedDataFromServer { get; set; }
 
             public Player(byte id)
             {
-                Id = id;
+                Id     = id;
+                IsDead = false;
             }
         }
 
         private class SimulationPhysics
         {
-            public Scene          MainPhysicsScene      { get; set; }
-            public Scene          ServerRecPhysicsScene { get; set; }
-            public PhysicsScene2D MainPhysics           { get; set; }
-            public PhysicsScene2D ServerRecPhysics      { get; set; }
+            public Scene          PhysicsScene { get; set; }
+            public PhysicsScene2D Physics      { get; set; }
         }
 
         private class AwaitingInputs
@@ -95,12 +93,14 @@ namespace MasterDegree
         private class Inputs
         {
             public Dictionary<uint, Game.PlayerInput> StoredInputs     { get; }
+            public Dictionary<uint, Vector2>          Positions        { get; }
             public uint                               LastInputFrame   { get; set; }
             public uint                               OldestInputFrame { get; set; }
 
             public Inputs()
             {
                 StoredInputs = new Dictionary<uint, Game.PlayerInput>();
+                Positions    = new Dictionary<uint, Vector2>();
             }
         }
 
@@ -130,12 +130,14 @@ namespace MasterDegree
         private byte                                   _MyPlayerId;
         private uint                                   _MyCurrentFrame;
         private uint                                   _LastSimulatedFrame;
+        private float                                  _TimeToNextFrame;
         private Inputs                                 _Inputs;
         private Player[]                               _Players;
         private AwaitingInputs                         _AwaitingInputs;
         private Dictionary<DVector2, ServerGameObject> _DestroyableWalls;
 
-        private const float _FixedDeltaTime = 1f / 30f;
+        private const int   _FramesPerSecond = 15;
+        private const float _FixedDeltaTime  = 1f / _FramesPerSecond;
 
         private readonly Color32[] _PlayersColors =
         {
@@ -230,12 +232,10 @@ namespace MasterDegree
         {
             Physics2D.gravity        = Vector2.zero;
             Physics2D.simulationMode = SimulationMode2D.Script;
-            
+
             CreateSceneParameters csp = new CreateSceneParameters(LocalPhysicsMode.Physics2D);
-            _Physics.MainPhysicsScene      = SceneManager.CreateScene("MainPhysics", csp);
-            _Physics.ServerRecPhysicsScene = SceneManager.CreateScene("RecPhysics", csp);
-            _Physics.MainPhysics           = _Physics.MainPhysicsScene.GetPhysicsScene2D();
-            _Physics.ServerRecPhysics      = _Physics.ServerRecPhysicsScene.GetPhysicsScene2D();
+            _Physics.PhysicsScene     = SceneManager.CreateScene("PhysicsScene", csp);
+            _Physics.Physics          = _Physics.PhysicsScene.GetPhysicsScene2D();
 
             InitOuterWalls();
             FillInnerWalls();
@@ -251,23 +251,21 @@ namespace MasterDegree
 
             Game.FillDestroyableWalls(vector2 =>
             {
-                Rigidbody2D mainWall = CreateWall(new Vector2(vector2.x, vector2.y), _Physics.MainPhysicsScene);
-                Rigidbody2D recWall = CreateWall(new Vector2(vector2.x, vector2.y), _Physics.ServerRecPhysicsScene);
+                Rigidbody2D mainWall = CreateWall(new Vector2(vector2.x, vector2.y), _Physics.PhysicsScene);
 
                 GameObject visualWall = Instantiate(_DestroyableWallPrefab, new Vector3(vector2.x, 0.5f, vector2.y), Quaternion.identity);
                 visualWall.transform.SetParent(_DestroyableWallsParent, true);
 
                 _DestroyableWalls[vector2] = new ServerGameObject
                 {
-                    MainPhysicsObj      = mainWall,
-                    ServerRecPhysicsObj = recWall,
-                    VisualGameObject    = visualWall,
-                    Owner               = -1,
-                    Power               = 0,
-                    FrameToDestroy      = uint.MaxValue,
-                    Confirmed           = true
+                    PhysicsObj   = mainWall,
+                    VisualGameObject = visualWall,
+                    Owner            = -1,
+                    Power            = 0,
+                    FrameToDestroy   = uint.MaxValue,
+                    Confirmed        = true
                 };
-                
+
                 Rigidbody2D CreateWall(Vector2 position, Scene scene)
                 {
                     GameObject wall = new GameObject("destroyableWall")
@@ -340,10 +338,12 @@ namespace MasterDegree
             while (_LastSimulatedFrame < _MyCurrentFrame)
             {
                 uint simulatedFrame = _LastSimulatedFrame + 1;
+                _TimeToNextFrame = 0f;
                 SimulateFrame(simulatedFrame);
                 _LastSimulatedFrame = simulatedFrame;
             }
 
+            _TimeToNextFrame += Time.deltaTime;
             MoveVisualRepresentations();
         }
 
@@ -372,7 +372,35 @@ namespace MasterDegree
             }
         }
 
-        private void Reconciliation() { }
+        private void Reconciliation()
+        {
+            uint frameToCheck = _Players[_MyPlayerId].FrameOfLastReceivedDataFromServer;
+            
+            if (!_Inputs.Positions.ContainsKey(frameToCheck)) return;
+
+            Vector2 predictedPosition = _Inputs.Positions[frameToCheck];
+            Vector2 serverPosition    = _Players[_MyPlayerId].LastPositionReceivedFromServer;
+
+            float missPredictionDistance = Vector2.Distance(predictedPosition, serverPosition);
+            
+            if (missPredictionDistance <= 0.1f) return;
+
+            _Inputs.Positions[frameToCheck]               = serverPosition;
+            _Players[_MyPlayerId].MainPhysicsObj.position = serverPosition;
+            _Physics.Physics.Simulate(_FixedDeltaTime);
+
+            uint frame     = frameToCheck;
+            uint lastFrame = _Inputs.LastInputFrame;
+
+            for (; frame <= lastFrame; ++frame)
+            {
+                if (!_Inputs.StoredInputs.ContainsKey(frame)) continue;
+                Vector2 position  = _Players[_MyPlayerId].MainPhysicsObj.position;
+                Vector2 direction = new Vector2(_Inputs.StoredInputs[frame].Direction.x, _Inputs.StoredInputs[frame].Direction.y);
+                _Players[_MyPlayerId].MainPhysicsObj.MovePosition(position + direction * (_FixedDeltaTime * Game.PlayerSpeed));
+                _Physics.Physics.Simulate(_FixedDeltaTime);
+            }
+        }
 
         private void SimulateFrame(uint frame)
         {
@@ -392,23 +420,62 @@ namespace MasterDegree
                 _Inputs.OldestInputFrame = frame;
             }
 
+            // We only hold one second of frames + 10 in buffer to send to gameServer
+            if (_Inputs.LastInputFrame - _Inputs.OldestInputFrame > _FramesPerSecond + 10)
+            {
+                while (_Inputs.LastInputFrame - _Inputs.OldestInputFrame > _FramesPerSecond + 10)
+                {
+                    _Inputs.StoredInputs.Remove(_Inputs.OldestInputFrame);
+                    _Inputs.Positions.Remove(_Inputs.OldestInputFrame);
+                    ++_Inputs.OldestInputFrame;
+                }
+            }
+
             _AwaitingInputs.PutBomb  = false;
             _AwaitingInputs.Detonate = false;
-            
+
+            SendInput();
+
             Vector2 position  = _Players[_MyPlayerId].MainPhysicsObj.position;
             Vector2 direction = new Vector2(newInput.Direction.x, newInput.Direction.y);
             _Players[_MyPlayerId].MainPhysicsObj.MovePosition(position + direction * (_FixedDeltaTime * Game.PlayerSpeed));
-            
-            // TODO: HERE CONTINUE - SEND INPUT TO SERVER AND DO Reconciliation
-            _Physics.MainPhysics.Simulate(_FixedDeltaTime);
+
+            _Physics.Physics.Simulate(_FixedDeltaTime);
+            Vector2 nextPosition = _Players[_MyPlayerId].MainPhysicsObj.position;
+            _Inputs.Positions[frame]              = nextPosition;
+            _Players[_MyPlayerId].LastPosition    = _Players[_MyPlayerId].CurrentPosition;
+            _Players[_MyPlayerId].CurrentPosition = nextPosition;
+        }
+
+        private void SendInput()
+        {
+            if (_Players[_MyPlayerId].IsDead) return;
+
+            using (DarkRiftWriter writer = DarkRiftWriter.Create())
+            {
+                Messages.PlayerInputMsg playerInput = new Messages.PlayerInputMsg
+                {
+                    StoredInputs     = _Inputs.StoredInputs,
+                    LastInputFrame   = _Inputs.LastInputFrame,
+                    OldestInputFrame = _Inputs.OldestInputFrame
+                };
+
+                playerInput.Write(writer);
+
+                using (Message message = Message.Create((ushort)Messages.MessageId.PlayerInput, writer))
+                    _Client.Client.SendMessage(message, SendMode.Unreliable);
+            }
         }
 
         private void MoveVisualRepresentations()
         {
+            float percentToNextFrame = _TimeToNextFrame / _FixedDeltaTime;
+
             for (int i = 0; i < _Players.Length; ++i)
             {
                 if (_Players[i] == null) continue;
-                _Players[i].VisualGameObject.transform.position = new Vector3(_Players[i].MainPhysicsObj.position.x, 1f, _Players[i].MainPhysicsObj.position.y);
+                Vector2 position = Vector2.Lerp(_Players[i].LastPosition, _Players[i].CurrentPosition, percentToNextFrame);
+                _Players[i].VisualGameObject.transform.position = new Vector3(position.x, 1f, position.y);
             }
         }
 
@@ -451,6 +518,13 @@ namespace MasterDegree
                             _InfoSystem.AddInfo("Game Started!!!", 0.5f);
                             break;
                         }
+                        case (ushort)Messages.MessageId.PlayerPosition:
+                        {
+                            Messages.PlayerPositionMsg msg = new Messages.PlayerPositionMsg();
+                            msg.Read(reader);
+                            PlayerPositionMessage(msg);
+                            break;
+                        }
                     }
                 }
             }
@@ -490,8 +564,8 @@ namespace MasterDegree
 
                 Player player = new Player((byte)i)
                 {
-                    MainPhysicsObj      = SpawnPlayer((byte)i, _Physics.MainPhysicsScene),
-                    ServerRecPhysicsObj = SpawnPlayer((byte)i, _Physics.ServerRecPhysicsScene)
+                    MainPhysicsObj = SpawnPlayer((byte)i, _Physics.PhysicsScene),
+                    IsDead         = false
                 };
 
                 GameObject playerVisual = Instantiate(_PlayerPrefab, new Vector3(Game.PlayersSpawnPoints[i].x, 1f, Game.PlayersSpawnPoints[i].y),
@@ -504,8 +578,18 @@ namespace MasterDegree
                 newMaterial.color     = _PlayersColors[i];
                 meshRenderer.material = newMaterial;
 
+                player.CurrentPosition = player.MainPhysicsObj.position;
+                player.LastPosition    = player.CurrentPosition;
+
                 _Players[i] = player;
             }
+        }
+
+        private void PlayerPositionMessage(Messages.PlayerPositionMsg playerPositionMsg)
+        {
+            _Players[playerPositionMsg.PlayerId].LastPositionReceivedFromServer    = new Vector2(playerPositionMsg.Position.x, playerPositionMsg.Position.y);
+            _Players[playerPositionMsg.PlayerId].LastPreviousDirReceivedFromServer = new Vector2(playerPositionMsg.PreviousDir.x, playerPositionMsg.PreviousDir.y);
+            _Players[playerPositionMsg.PlayerId].FrameOfLastReceivedDataFromServer = playerPositionMsg.Frame;
         }
 
         #endregion Messages
@@ -519,22 +603,11 @@ namespace MasterDegree
                 Id         = 0,
                 ObjectType = Game.ObjectType.StaticWall
             };
-
-            // Left
-            CreateWall(new Vector2(-3.5f, -3.5f), new Vector2(-3.5f, 3.5f), "Left", _Physics.MainPhysicsScene);
-            CreateWall(new Vector2(-3.5f, -3.5f), new Vector2(-3.5f, 3.5f), "Left", _Physics.ServerRecPhysicsScene);
-
-            // Right
-            CreateWall(new Vector2(3.5f, -3.5f), new Vector2(3.5f, 3.5f), "Right", _Physics.MainPhysicsScene);
-            CreateWall(new Vector2(3.5f, -3.5f), new Vector2(3.5f, 3.5f), "Right", _Physics.ServerRecPhysicsScene);
-
-            // Up
-            CreateWall(new Vector2(-3.5f, 3.5f), new Vector2(3.5f, 3.5f), "Up", _Physics.MainPhysicsScene);
-            CreateWall(new Vector2(-3.5f, 3.5f), new Vector2(3.5f, 3.5f), "Up", _Physics.ServerRecPhysicsScene);
-
-            // Down
-            CreateWall(new Vector2(-3.5f, -3.5f), new Vector2(3.5f, -3.5f), "Down", _Physics.MainPhysicsScene);
-            CreateWall(new Vector2(-3.5f, -3.5f), new Vector2(3.5f, -3.5f), "Down", _Physics.ServerRecPhysicsScene);
+            
+            CreateWall(new Vector2(-3.5f, -3.5f), new Vector2(-3.5f, 3.5f), "Left", _Physics.PhysicsScene);
+            CreateWall(new Vector2(3.5f, -3.5f), new Vector2(3.5f, 3.5f), "Right", _Physics.PhysicsScene);
+            CreateWall(new Vector2(-3.5f, 3.5f), new Vector2(3.5f, 3.5f), "Up", _Physics.PhysicsScene);
+            CreateWall(new Vector2(-3.5f, -3.5f), new Vector2(3.5f, -3.5f), "Down", _Physics.PhysicsScene);
 
             void CreateWall(Vector2 begin, Vector2 end, string wallName, Scene scene)
             {
@@ -565,8 +638,7 @@ namespace MasterDegree
             {
                 for (int y = -2; y <= 2; y += 2)
                 {
-                    CreateWall(new Vector2(x, y), _Physics.MainPhysicsScene);
-                    CreateWall(new Vector2(x, y), _Physics.ServerRecPhysicsScene);
+                    CreateWall(new Vector2(x, y), _Physics.PhysicsScene);
                 }
             }
 
@@ -595,10 +667,10 @@ namespace MasterDegree
                 ObjectType = Game.ObjectType.Player,
                 Id         = id
             };
-            
+
             GameObject player = new GameObject("player" + id);
             SceneManager.MoveGameObjectToScene(player, scene);
-            player.transform.position = new Vector3(Game.PlayersSpawnPoints[id].x, Game.PlayersSpawnPoints[id].y);
+            player.transform.position = new Vector2(Game.PlayersSpawnPoints[id].x, Game.PlayersSpawnPoints[id].y);
             Rigidbody2D rigidbody2d = player.AddComponent<Rigidbody2D>();
             rigidbody2d.bodyType    = RigidbodyType2D.Dynamic;
             rigidbody2d.constraints = RigidbodyConstraints2D.FreezeRotation;
