@@ -455,7 +455,7 @@ namespace GameLogic
                 frameToDestroy = (uint)(_PhysicsTickNumber + _NumberOfFramesPerSecond * 2);
             }
 
-            _Logger.Log($"Bobmb created at position {bombPos}", LogType.Info);
+            _Logger.Log($"Bomb created at position {bombPos}", LogType.Info);
 
             GameObject gameObject = new GameObject
             {
@@ -565,6 +565,8 @@ namespace GameLogic
             }
 
             SendMessageToAllPlayers(explosionResult);
+            
+            CheckEndGame();
 
             // Return lag compensation movements
             if (frameToDestroy <= 3)
@@ -744,6 +746,21 @@ namespace GameLogic
             }
         }
 
+        private void CheckEndGame()
+        {
+            int numberOfAlivePlayers = 0;
+
+            foreach (Player player in _Players)
+            {
+                if (player.IsDead) continue;
+                ++numberOfAlivePlayers;
+            }
+            
+            if (numberOfAlivePlayers > 1) return;
+            _GameState = Game.GameState.Ended;
+            _Logger.Log("Game Over", LogType.Info);
+        }
+
         #endregion Bomb & Bonuses
 
         #region Messages
@@ -835,8 +852,7 @@ namespace GameLogic
                         {
                             case (ushort)Messages.MessageId.StartGame:
                             {
-                                // TODO: uncomment this
-                                //if (_Players.Count < 2) break;
+                                if (_Players.Count < 2) break;
                                 _GameState = Game.GameState.Running;
                                 SendStartMessage();
                                 break;

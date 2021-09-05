@@ -314,13 +314,12 @@ namespace MasterDegree
             if (_GameState != Game.GameState.BeforeStart) return;
 
             if (!Input.GetKeyDown(KeyCode.Return)) return;
-
-            // TODO: uncomment this
-            /*if (_Players.Count(x => x != null) < 2)
+            
+            if (_Players.Count(x => x != null) < 2)
             {
                 _InfoSystem.AddInfo("Can't start game yet. Minimum number of players is 2.", 1.5f);
                 return;
-            }*/
+            }
 
             using (DarkRiftWriter writer = DarkRiftWriter.Create())
             {
@@ -747,6 +746,23 @@ namespace MasterDegree
             }
             
             Explode(msg);
+            CheckEndGame();
+        }
+        
+        private void CheckEndGame()
+        {
+            int numberOfAlivePlayers = 0;
+
+            foreach (Player player in _Players)
+            {
+                if (player == null) continue;
+                if (player.IsDead) continue;
+                ++numberOfAlivePlayers;
+            }
+            
+            if (numberOfAlivePlayers > 1) return;
+            _GameState = Game.GameState.Ended;
+            _InfoSystem.AddInfo("Game Over!", 3f);
         }
 
         private void BonusTakenMessage(Messages.BonusTaken bonusTaken)
