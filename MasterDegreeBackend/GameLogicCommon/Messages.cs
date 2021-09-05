@@ -47,7 +47,8 @@ namespace GameLogicCommon
             StartGame,
             PlayerInput,
             PlayerPosition,
-            PutBomb
+            PutBomb,
+            ExplosionResult
         }
 
         public class PlayerInitMsg : INetMessage
@@ -199,6 +200,88 @@ namespace GameLogicCommon
                 PlayerId       = reader.ReadByte();
                 Position       = new Vector2(reader.ReadSingle(), reader.ReadSingle());
                 Power          = reader.ReadByte();
+            }
+        }
+
+        public class ExplosionResult : INetMessage
+        {
+            public MessageId MessageId  => MessageId.ExplosionResult;
+            public bool      IsFrequent => false;
+
+            public Vector2       BombPosition     { get; set; }
+            public List<Vector2> WallsDestroyed   { get; set; }
+            public List<byte>    PlayersKilled    { get; set; }
+            public List<Vector2> BonusesDestroyed { get; set; }
+            public float         UpDistance       { get; set; }
+            public float         DownDistance     { get; set; }
+            public float         LeftDistance     { get; set; }
+            public float         RightDistance    { get; set; }
+
+            public void Write(DarkRiftWriter writer)
+            {
+                writer.Write(BombPosition.x);
+                writer.Write(BombPosition.y);
+                writer.Write(WallsDestroyed.Count);
+
+                for (int i = 0; i < WallsDestroyed.Count; ++i)
+                {
+                    writer.Write(WallsDestroyed[i].x);
+                    writer.Write(WallsDestroyed[i].y);
+                }
+                
+                writer.Write(PlayersKilled.Count);
+
+                for (int i = 0; i < PlayersKilled.Count; ++i)
+                {
+                    writer.Write(PlayersKilled[i]);
+                }
+                
+                writer.Write(BonusesDestroyed.Count);
+
+                for (int i = 0; i < BonusesDestroyed.Count; ++i)
+                {
+                    writer.Write(BonusesDestroyed[i].x);
+                    writer.Write(BonusesDestroyed[i].y);
+                }
+                
+                writer.Write(UpDistance);
+                writer.Write(DownDistance);
+                writer.Write(LeftDistance);
+                writer.Write(RightDistance);
+            }
+
+            public void Read(DarkRiftReader reader)
+            {
+                BombPosition = new Vector2(reader.ReadSingle(), reader.ReadSingle());
+
+                WallsDestroyed = new List<Vector2>();
+                int numberOfWalls = reader.ReadInt32();
+
+                for (int i = 0; i < numberOfWalls; ++i)
+                {
+                    WallsDestroyed.Add(new Vector2(reader.ReadSingle(), reader.ReadSingle()));
+                }
+                
+                int playersKilled = reader.ReadInt32();
+                PlayersKilled = new List<byte>();
+
+                for (int i = 0; i < playersKilled; ++i)
+                {
+                    PlayersKilled.Add(reader.ReadByte());
+                }
+                
+                int bonusesDestroyed = reader.ReadInt32();
+                BonusesDestroyed = new List<Vector2>();
+                
+                for (int i = 0; i < bonusesDestroyed; ++i)
+                {
+                    BonusesDestroyed.Add(new Vector2(reader.ReadSingle(), reader.ReadSingle()));
+                }
+
+                UpDistance    = reader.ReadSingle();
+                DownDistance  = reader.ReadSingle();
+                LeftDistance  = reader.ReadSingle();
+                RightDistance = reader.ReadSingle();
             }
         }
     }

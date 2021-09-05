@@ -28,6 +28,7 @@ using System.Net;
 using Box2D.NetStandard.Dynamics.Bodies;
 using DarkRift;
 using DarkRift.Client;
+using DeusaldSharp;
 using GameLogicCommon;
 using GuerrillaNtp;
 using SharpBox2D;
@@ -36,6 +37,7 @@ using UnityEngine;
 using DVector2 = DeusaldSharp.Vector2;
 using Object = UnityEngine.Object;
 using Physics2D = SharpBox2D.Physics2D;
+using Vector3 = UnityEngine.Vector3;
 
 namespace MasterDegree
 {
@@ -126,6 +128,7 @@ namespace MasterDegree
         [SerializeField] private Transform       _PlayersParent;
         [SerializeField] private GameObject      _BombPrefab;
         [SerializeField] private Transform       _BombsParent;
+        [SerializeField] private GameObject      _ExplosionPrefab;
 
         private DrClient                               _Client;
         private Physics2DControl                       _Physics;
@@ -452,7 +455,7 @@ namespace MasterDegree
 
             UpdateOtherPlayers();
             RemoveMyNotConfirmedBombs();
-            AnimateBombsThatExpired();
+            RemoveBombsThatExpired();
 
             _Physics.Step();
 
@@ -518,14 +521,13 @@ namespace MasterDegree
             }
         }
 
-        private void AnimateBombsThatExpired()
+        private void RemoveBombsThatExpired()
         {
             foreach (var bomb in _Bombs.ToArray())
             {
                 if (bomb.Value.FrameToDestroy > _LastSimulatedFrame) continue;
                 bomb.Value.Destroy();
                 _Bombs.Remove(bomb.Key);
-                Explode(bomb.Key, bomb.Value.Power);
 
                 if (_Players[_MyPlayerId].Bombs.Contains(bomb.Key))
                 {
@@ -600,6 +602,13 @@ namespace MasterDegree
                             PutBombMessage(msg);
                             break;
                         }
+                        case (ushort)Messages.MessageId.ExplosionResult:
+                        {
+                            Messages.ExplosionResult msg = new Messages.ExplosionResult();
+                            msg.Read(reader);
+                            ExplosionResultMessage(msg);
+                            break;
+                        }
                     }
                 }
             }
@@ -670,6 +679,13 @@ namespace MasterDegree
 
         private void PutBombMessage(Messages.PutBomb msg)
         {
+            if (msg.FrameToDestroy != UInt32.MaxValue)
+            {
+                msg.FrameToDestroy += 1; // We are always one frame ahead of server (this is to have synchronization with explosion result)
+                // Adding have of rtt as frames to hide explosion lag
+                msg.FrameToDestroy += (uint) MathF.Ceiling(_Client.Client.RoundTripTime.SmoothedRtt / 2f / _FixedDeltaTime);
+            }
+
             if (msg.PlayerId == _MyPlayerId)
             {
                 if (_Players[_MyPlayerId].Bombs.Contains(msg.Position))
@@ -682,6 +698,52 @@ namespace MasterDegree
             }
 
             PutBomb((sbyte)msg.PlayerId, false, msg.Position, msg.FrameToDestroy, msg.Power);
+        }
+
+        private void ExplosionResultMessage(Messages.ExplosionResult msg)
+        {
+            foreach (DVector2 position in msg.WallsDestroyed)
+            {
+                if (_DestroyableWalls.ContainsKey(position))
+                {
+                    _DestroyableWalls[position].Destroy();
+                    _DestroyableWalls.Remove(position);
+                }
+            }
+
+            foreach (int playerKilled in msg.PlayersKilled)
+            {
+                _Players[playerKilled].PhysicsObj.Enabled                                    = false;
+                _Players[playerKilled].VisualGameObject.GetComponent<MeshRenderer>().enabled = false;
+                _Players[playerKilled].IsDead                                                = true;
+            }
+            
+            // TODO
+            /*foreach (Vector3 position in msg.BonusesDestroyed)
+            {
+                _Bonuses[position].Destroy();
+                _Bonuses.Remove(position);
+            }*/
+            
+            // TODO
+            /*foreach (var pair in msg.BonusesSpawned)
+            {
+                SpawnBonus(pair.Key, pair.Value);
+            }*/
+
+            if (_Bombs.ContainsKey(msg.BombPosition))
+            {
+                DVector2 pos   = msg.BombPosition;
+                _Bombs[pos].Destroy();
+                _Bombs.Remove(pos);
+                
+                if (_Players[_MyPlayerId].Bombs.Contains(pos))
+                {
+                    _Players[_MyPlayerId].Bombs.Remove(pos);
+                }
+            }
+            
+            Explode(msg);
         }
 
         #endregion Messages
@@ -762,7 +824,7 @@ namespace MasterDegree
                 ObjectType = Game.ObjectType.Bomb,
                 Id         = 0
             };
-            
+
             if (simulatedBomb)
             {
                 // We will wait 0.5 seconds for server confirmation of that bomb
@@ -789,7 +851,24 @@ namespace MasterDegree
             }
         }
 
-        private void Explode(DVector2 position, byte power) { }
+        private void Explode(Messages.ExplosionResult explosionResult)
+        {
+            // Spawn explosion animations
+            for (float x = -explosionResult.LeftDistance; x <= explosionResult.RightDistance; ++x)
+            {
+                Vector3 explosionPosition = new Vector3(explosionResult.BombPosition.x, 0.5f, explosionResult.BombPosition.y);
+                explosionPosition.x += x;
+                Instantiate(_ExplosionPrefab, explosionPosition, Quaternion.identity);
+            }
+
+            for (float z = -explosionResult.DownDistance; z <= explosionResult.UpDistance; ++z)
+            {
+                Vector3 explosionPosition = new Vector3(explosionResult.BombPosition.x, 0.5f, explosionResult.BombPosition.y);
+                ;
+                explosionPosition.z += z;
+                Instantiate(_ExplosionPrefab, explosionPosition, Quaternion.identity);
+            }
+        }
 
         #endregion Bombs And Bonuses
 

@@ -57,6 +57,13 @@ namespace GameLogicCommon
             public uint    Frame     { get; set; }
         }
 
+        public class CastHit
+        {
+            public object  ColliderHit { get; set; }
+            public Vector2 HitPoint    { get; set; }
+            public float   Fraction    { get; set; }
+        }
+        
         public const float PlayerSpeed = 5f;
 
         public static readonly Vector2[] PlayersSpawnPoints =

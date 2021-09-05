@@ -269,8 +269,8 @@ namespace GameLogic
                 {
                     foreach (Vector3 pos in player.Bombs)
                     {
-                        // We set 0 as frame to destroy to later know that this bomb should be checked with lag compensation
-                        _Bombs[pos].FrameToDestroy = 0;
+                        // We set playerId as frame to destroy to later know that this bomb should be checked with lag compensation
+                        _Bombs[pos].FrameToDestroy = player.Id;
                     }
                 }
 
@@ -322,7 +322,7 @@ namespace GameLogic
                     _Players[bomb.Value.Owner].Bombs.Remove(bomb.Key);
                     bomb.Value.Destroy();
                     _Bombs.Remove(bomb.Key);
-                    Explosion((byte)owner, bomb.Key, bomb.Value.Power, frameToDestroy);
+                    Explosion(bomb.Key, bomb.Value.Power, frameToDestroy);
                     explosion = true;
                 }
             } while (explosion);
@@ -425,7 +425,7 @@ namespace GameLogic
                 ObjectType = Game.ObjectType.Bomb,
                 Id         = 0
             };
-            
+
             // With detonator we wait for signal from player to detonate
             uint frameToDestroy = UInt32.MaxValue;
 
@@ -457,7 +457,158 @@ namespace GameLogic
             SendMessageToAllPlayers(msg);
         }
 
-        private void Explosion(byte ownerId, Vector2 position, byte power, uint frameToDestroy) { }
+        private void Explosion(Vector2 position, byte power, uint frameToDestroy)
+        {
+            Messages.ExplosionResult explosionResult = new Messages.ExplosionResult
+            {
+                BombPosition = position
+            };
+            
+            float upExplosionDistance    = power;
+            float downExplosionDistance  = power;
+            float leftExplosionDistance  = power;
+            float rightExplosionDistance = power;
+
+            HashSet<Vector2> wallsDestroyed = new HashSet<Vector2>();
+            HashSet<byte>    playersKilled  = new HashSet<byte>();
+            HashSet<Vector2> bonusDestroyed = new HashSet<Vector2>();
+
+            // Lag compensation
+            // If this was bomb explosion via detonator apply lag compensation
+            // Frame to destroy points to who detonates the bomb:
+            // 0 -> player 0
+            // 1 -> player 1
+            // 2 -> player 2
+            // 3 -> player 3
+            if (frameToDestroy <= 3)
+            {
+                byte detonatorPlayer = (byte)frameToDestroy;
+
+                // We calculate how many frames of delay player had when he detonated bomb while seeing enemy
+                uint playerTriggeringDelayInFrames = (uint)MathF.Ceiling(_Players[detonatorPlayer].Client.RoundTripTime.SmoothedRtt / _FixedDeltaTime);
+
+                // This position is from the past but it was the present frame of enemy position when player detonated bomb
+                uint frameInPast = _PhysicsTickNumber - playerTriggeringDelayInFrames - 1;
+                
+                // Move all players back to the position from past (time where player detonates bomb on his timeline)
+                for (int i = 0; i < _Players.Count; ++i)
+                {
+                    _Players[i].PhysicsObj.GetCollider(0).IsSensor = true;
+                    _Players[i].PhysicsObj.Position                = _Players[i].Positions[frameInPast];
+                }
+                
+                _Physics.Step();
+            }
+            
+            CheckDestruction(power, position, Vector2.Up, playersKilled, wallsDestroyed, bonusDestroyed, frameToDestroy, ref upExplosionDistance);
+            CheckDestruction(power, position, Vector2.Down, playersKilled, wallsDestroyed, bonusDestroyed, frameToDestroy, ref downExplosionDistance);
+            CheckDestruction(power, position, Vector2.Left, playersKilled, wallsDestroyed, bonusDestroyed, frameToDestroy, ref leftExplosionDistance);
+            CheckDestruction(power, position, Vector2.Right, playersKilled, wallsDestroyed, bonusDestroyed, frameToDestroy, ref rightExplosionDistance);
+
+            explosionResult.WallsDestroyed   = wallsDestroyed.ToList();
+            explosionResult.PlayersKilled    = playersKilled.ToList();
+            explosionResult.BonusesDestroyed = bonusDestroyed.ToList();
+            explosionResult.UpDistance       = upExplosionDistance;
+            explosionResult.DownDistance     = downExplosionDistance;
+            explosionResult.LeftDistance     = leftExplosionDistance;
+            explosionResult.RightDistance    = rightExplosionDistance;
+            
+            // Destroy all walls that bomb reached
+            foreach (Vector2 wallPos in wallsDestroyed)
+            {
+                if (!_DestroyableWalls.ContainsKey(wallPos)) continue;
+
+                _DestroyableWalls[wallPos].Destroy();
+                _DestroyableWalls.Remove(wallPos);
+                // TODO: TrySpawnBonus(wallPos, explosionResult);
+            }
+
+            // Destroy all bonuses that bomb reached
+            // TODO
+
+            // Kill all players that bomb reached
+            foreach (int playerKilled in playersKilled)
+            {
+                if (_Players[playerKilled].IsDead) continue;
+
+                _Players[playerKilled].IsDead             = true;
+                _Players[playerKilled].PhysicsObj.Enabled = false;
+            }
+            
+            SendMessageToAllPlayers(explosionResult);
+            
+            // Return lag compensation movements
+            if (frameToDestroy <= 3)
+            {
+                for (int i = 0; i < _Players.Count; ++i)
+                {
+                    _Players[i].PhysicsObj.GetCollider(0).IsSensor = false;
+                    _Players[i].PhysicsObj.Position                = _Players[i].Positions[_PhysicsTickNumber];
+                }
+                
+                _Physics.Step();
+            }
+        }
+
+        private void CheckDestruction(byte power, Vector2 origin, Vector2 dir, HashSet<byte> playersKilled,
+            HashSet<Vector2> wallsDestroyed, HashSet<Vector2> bonusesDestroyed, uint frameToDestroy, ref float distanceToColliderCenter)
+        {
+            ShapeCastInput shapeCastInput = new ShapeCastInput();
+            shapeCastInput.SetAsCircle(0.35f);
+            shapeCastInput.SetTranslation(origin, dir, power);
+
+            List<Game.CastHit> castHits = new List<Game.CastHit>();
+
+            _Physics.ShapeCast((colliderHit, point, normal, f, index) =>
+            {
+                castHits.Add(new Game.CastHit
+                {
+                    ColliderHit = colliderHit.PhysicsObject,
+                    HitPoint    = point,
+                    Fraction    = f
+                });
+                return true;
+            }, shapeCastInput);
+
+            castHits.Sort((x, y) => x.Fraction.CompareTo(y.Fraction));
+
+            for (int i = 0; i < castHits.Count; ++i)
+            {
+                IPhysicsObject       physicsObject = (IPhysicsObject)castHits[i].ColliderHit;
+                Game.PhysicsObjectId objectId      = (Game.PhysicsObjectId)physicsObject.UserData;
+
+                if (objectId.ObjectType == Game.ObjectType.Player)
+                {
+                    playersKilled.Add((byte)objectId.Id);
+                }
+                else if (objectId.ObjectType == Game.ObjectType.DestroyableWall)
+                {
+                    Vector2 pos = physicsObject.Position;
+                    wallsDestroyed.Add(pos);
+                    distanceToColliderCenter = MathF.Ceiling(Vector2.Distance(origin, castHits[i].HitPoint));
+                    break;
+                }
+                else if (objectId.ObjectType == Game.ObjectType.Bomb)
+                {
+                    Vector2 pos = physicsObject.Position;
+
+                    if (_Bombs.ContainsKey(pos))
+                    {
+                        _Bombs[pos].FrameToDestroy = frameToDestroy;
+                    }
+                }
+                else if (objectId.ObjectType == Game.ObjectType.Bonus)
+                {
+                    Vector3 pos = physicsObject.Position;
+                    bonusesDestroyed.Add(pos);
+                }
+                else
+                {
+                    distanceToColliderCenter = MathF.Floor(Vector2.Distance(origin, castHits[i].HitPoint));
+                    break;
+                }
+            }
+        }
 
         #endregion Bomb
 
