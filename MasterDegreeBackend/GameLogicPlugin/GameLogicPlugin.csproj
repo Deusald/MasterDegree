@@ -6,6 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="AgonesSDK" Version="1.17.0" />
       <PackageReference Include="DeusaldSharp" Version="5.0.2" />
       <PackageReference Include="GuerrillaNtp" Version="2.0.1" />
       <PackageReference Include="SharpBox2D" Version="0.9.1" />

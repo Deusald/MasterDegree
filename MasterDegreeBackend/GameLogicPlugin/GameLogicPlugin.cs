@@ -23,6 +23,9 @@
 
 using System;
 using System.Net;
+using System.Threading.Tasks;
+using Agones;
+using Agones.Dev.Sdk;
 using DarkRift;
 using DarkRift.Server;
 using DeusaldSharp;
@@ -34,7 +37,7 @@ namespace GameLogic
     {
         #region Properties
 
-        public override Version Version    => new Version(0, 1, 1);
+        public override Version Version    => new Version(0, 2, 0);
         public override bool    ThreadSafe => true;
 
         #endregion Properties
@@ -46,6 +49,8 @@ namespace GameLogic
 
         private readonly Logger    _Logger;
         private readonly GameLogic _GameLogic;
+        private readonly AgonesSDK _Agones;
+        private readonly bool      _IsManualEnv;
 
         private const ushort _ServerTicksPerSecond = 15;
         private const ushort _ServerTickLogEveryX  = _ServerTicksPerSecond * 30;
@@ -56,16 +61,61 @@ namespace GameLogic
 
         public GameLogicPlugin(PluginLoadData pluginLoadData) : base(pluginLoadData)
         {
-            _Logger    = Logger;
-            _GameLogic = new GameLogic(_Logger, _ServerTicksPerSecond);
-            StartServerClock();
-            _GameLogic.ServerClockStartTime              =  _ServerClockStartTime;
+            _Logger                                      =  Logger;
+            _GameLogic                                   =  new GameLogic(_Logger, _ServerTicksPerSecond, true);
+            _GameLogic.GameOver                          += GameLogicOnGameOver;
             pluginLoadData.ClientManager.ClientConnected += OnClientConnected;
+            _IsManualEnv                                 =  Convert.ToBoolean(Environment.GetEnvironmentVariable("MANUAL"));
+
+            if (_IsManualEnv)
+            {
+                StartGameLoop();
+            }
+            else
+            {
+                _Agones = new AgonesSDK();
+                ConnectToAgones().Wait();
+                CreateTimer(0, 2 * MathUtils.SecToMilliseconds, timer => Task.Run(HealthSignal));
+            }
         }
 
         #endregion Special Methods
 
         #region Private Methods
+
+        private void StartGameLoop()
+        {
+            StartServerClock();
+            _GameLogic.ServerClockStartTime = _ServerClockStartTime;
+            _Logger.Log("Game loop started.", LogType.Info);
+        }
+
+        private async Task ConnectToAgones()
+        {
+            bool ok = await _Agones.ConnectAsync();
+
+            if (!ok)
+            {
+                _Logger.Log("Couldn't connect to Agones!", LogType.Error);
+                throw new Exception("Couldn't connect to Agones!");
+            }
+
+            _Logger.Log("Connected to Agones!", LogType.Info);
+            await _Agones.ReadyAsync();
+            _Logger.Log("Set Agones status to Ready.", LogType.Info);
+            _Agones.WatchGameServer(GameServerUpdate);
+        }
+
+        private async Task HealthSignal()
+        {
+            await _Agones.HealthAsync();
+        }
+
+        private void GameServerUpdate(GameServer gameServer)
+        {
+            if (gameServer.Status.State != "Allocated") return;
+            StartGameLoop();
+        }
 
         private void StartServerClock()
         {
@@ -87,10 +137,27 @@ namespace GameLogic
         {
             _GameLogic.Update((float)deltaTime);
         }
-        
+
         private void OnClientConnected(object sender, ClientConnectedEventArgs e)
         {
             _GameLogic.OnClientConnected(e.Client);
+        }
+        
+        private void GameLogicOnGameOver()
+        {
+            if (_IsManualEnv)
+            {
+                Environment.Exit(0);
+            }
+            else
+            {
+                Task.Run(ShutDownServer);
+            }
+        }
+
+        private async Task ShutDownServer()
+        {
+            await _Agones.ShutDownAsync();
         }
 
         #endregion Private Methods

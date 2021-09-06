@@ -54,7 +54,7 @@ namespace GameServer
                         new ServerSpawnData.PluginSearchSettings.PluginSearchPath
                         {
                             Source          = "Plugins/",
-                            CreateDirectory = true
+                            CreateDirectory = false
                         }
                     }
                 },
@@ -101,7 +101,7 @@ namespace GameServer
                             Name    = "DefaultNetworkListener",
                             Type    = "BichannelListener",
                             Address = IPAddress.Any,
-                            Port    = ushort.Parse(Environment.GetEnvironmentVariable("GAME_PORT")!),
+                            Port    = 40000,
                             Settings = { {"noDelay", "true"} }
                         }
                     }
@@ -133,7 +133,7 @@ namespace GameServer
 
                 if (input == null)
                 {
-                    Console.WriteLine("Stopping input loop as we seem to be running without an input stream.");
+                    Console.WriteLine("Input loop turned off.");
                     return;
                 }
 

@@ -90,6 +90,8 @@ namespace GameLogic
 
         #region Variables
 
+        public event Action GameOver;
+        
         private Game.GameState   _GameState;
         private Physics2DControl _Physics;
         private float            _SimulationAccumulatedTime;
@@ -111,12 +113,12 @@ namespace GameLogic
 
         #region Special Methods
 
-        public GameLogic(Logger logger, ushort framesPerSecond)
+        public GameLogic(Logger logger, ushort framesPerSecond, bool withWalls)
         {
             _GameLockObject          = new object();
             _Random                  = new Random();
             _Logger                  = logger;
-            _SpawnDestroyableWalls   = bool.Parse(Environment.GetEnvironmentVariable("WITH_WALLS")!);
+            _SpawnDestroyableWalls   = withWalls;
             _NumberOfFramesPerSecond = framesPerSecond;
             _FixedDeltaTime          = 1f / _NumberOfFramesPerSecond;
             _GameState               = Game.GameState.BeforeStart;
@@ -759,6 +761,7 @@ namespace GameLogic
             if (numberOfAlivePlayers > 1) return;
             _GameState = Game.GameState.Ended;
             _Logger.Log("Game Over", LogType.Info);
+            GameOver?.Invoke();
         }
 
         #endregion Bomb & Bonuses
