@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Box2D;
+using Box2D.NetStandard.Dynamics.Bodies;
 using DarkRift;
 using DarkRift.Server;
 using DeusaldSharp;
@@ -209,7 +210,6 @@ namespace GameLogic
 
         private void InitPhysics()
         {
-            Box2dNativeLoader.LoadNativeLibrary(Box2dNativeLoader.System.Windows);
             _Physics                  =  new Physics2DControl(_NumberOfFramesPerSecond, Vector2.Zero);
             _Physics.PreCollision     += DisablePlayerToPlayerCollision;
             _Physics.OnCollisionEnter += BombCollisionEnter;

@@ -9,7 +9,6 @@
       <PackageReference Include="AgonesSDK" Version="1.17.0" />
       <PackageReference Include="DeusaldSharp" Version="5.0.2" />
       <PackageReference Include="GuerrillaNtp" Version="2.0.1" />
-      <PackageReference Include="SharpBox2D" Version="0.9.1" />
     </ItemGroup>
 
     <ItemGroup>
@@ -17,6 +16,10 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Reference Include="Box2D.NetStandard, Version=2.4.2.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\Box2D.NetStandard\Box2D.NetStandard.dll</HintPath>
+        <Private>False</Private>
+      </Reference>
       <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
         <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.dll</HintPath>
         <Private>False</Private>
@@ -27,6 +30,10 @@
       </Reference>
       <Reference Include="DarkRift.Server, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
         <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.Server.dll</HintPath>
+        <Private>False</Private>
+      </Reference>
+      <Reference Include="SharpBox2D, Version=0.9.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\SharpBox2d\SharpBox2D.dll</HintPath>
         <Private>False</Private>
       </Reference>
     </ItemGroup>

@@ -24,7 +24,6 @@
 using System.Collections.Generic;
 using DarkRift;
 using DeusaldSharp;
-using SharpBox2D;
 
 namespace GameLogicCommon
 {

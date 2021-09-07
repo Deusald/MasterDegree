@@ -1,0 +1,3 @@
+﻿gameservers:
+  minPort: 40000
+  maxPort: 50000

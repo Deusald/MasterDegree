@@ -6,7 +6,6 @@
 
     <ItemGroup>
         <PackageReference Include="DeusaldSharp" Version="5.0.2" />
-        <PackageReference Include="SharpBox2D" Version="0.9.1" />
     </ItemGroup>
 
     <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp3.1'">

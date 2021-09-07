@@ -101,7 +101,7 @@ namespace GameServer
                             Name    = "DefaultNetworkListener",
                             Type    = "BichannelListener",
                             Address = IPAddress.Any,
-                            Port    = 40000,
+                            Port    = 39999,
                             Settings = { {"noDelay", "true"} }
                         }
                     }
@@ -112,7 +112,7 @@ namespace GameServer
             _Server = new DarkRiftServer(serverSpawnData);
             _Server.StartServer();
             
-            new Thread(ConsoleLoop).Start();
+            new Thread(() => ConsoleLoop(_Server.LogManager.GetLoggerFor("GameServer"))).Start();
 
             while (!_Server.Disposed)
             {
@@ -125,7 +125,7 @@ namespace GameServer
 
         #region Private Methods
 
-        private static void ConsoleLoop()
+        private static void ConsoleLoop(Logger logger)
         {
             while (!_Server.Disposed)
             {
@@ -133,7 +133,7 @@ namespace GameServer
 
                 if (input == null)
                 {
-                    Console.WriteLine("Input loop turned off.");
+                    logger.Log("Input loop turned off.", LogType.Info);
                     return;
                 }
 

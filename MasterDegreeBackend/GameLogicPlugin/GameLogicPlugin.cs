@@ -26,6 +26,7 @@ using System.Net;
 using System.Threading.Tasks;
 using Agones;
 using Agones.Dev.Sdk;
+using Box2D;
 using DarkRift;
 using DarkRift.Server;
 using DeusaldSharp;
@@ -66,7 +67,7 @@ namespace GameLogic
             _GameLogic.GameOver                          += GameLogicOnGameOver;
             pluginLoadData.ClientManager.ClientConnected += OnClientConnected;
             _IsManualEnv                                 =  Convert.ToBoolean(Environment.GetEnvironmentVariable("MANUAL"));
-
+                
             if (_IsManualEnv)
             {
                 StartGameLoop();
