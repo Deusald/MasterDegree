@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.dll</HintPath>
+      </Reference>
+      <Reference Include="DarkRift.Client, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.Client.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\GameLogicCommon\GameLogicCommon.csproj" />
+    </ItemGroup>
+
+</Project>

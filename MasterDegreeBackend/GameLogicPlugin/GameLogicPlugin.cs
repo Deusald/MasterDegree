@@ -26,7 +26,6 @@ using System.Net;
 using System.Threading.Tasks;
 using Agones;
 using Agones.Dev.Sdk;
-using Box2D;
 using DarkRift;
 using DarkRift.Server;
 using DeusaldSharp;
@@ -52,6 +51,7 @@ namespace GameLogic
         private readonly GameLogic _GameLogic;
         private readonly AgonesSDK _Agones;
         private readonly bool      _IsManualEnv;
+        private readonly object    _GameStartLock;
 
         private const ushort _ServerTicksPerSecond = 15;
         private const ushort _ServerTickLogEveryX  = _ServerTicksPerSecond * 30;
@@ -64,6 +64,7 @@ namespace GameLogic
         {
             _Logger                                      =  Logger;
             _GameLogic                                   =  new GameLogic(_Logger, _ServerTicksPerSecond, true);
+            _GameStartLock                               =  new object();
             _GameLogic.GameOver                          += GameLogicOnGameOver;
             pluginLoadData.ClientManager.ClientConnected += OnClientConnected;
             _IsManualEnv                                 =  Convert.ToBoolean(Environment.GetEnvironmentVariable("MANUAL"));
@@ -114,8 +115,12 @@ namespace GameLogic
 
         private void GameServerUpdate(GameServer gameServer)
         {
-            if (gameServer.Status.State != "Allocated") return;
-            StartGameLoop();
+            lock (_GameStartLock)
+            {
+                if (gameServer.Status.State != "Allocated") return;
+                if (_ServerClock != null) return;
+                StartGameLoop();
+            }
         }
 
         private void StartServerClock()

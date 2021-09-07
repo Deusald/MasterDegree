@@ -2,7 +2,7 @@
 set -eo pipefail
 
 # Components (new component should be add here and in create-minikube.sh
-__allComponents=(game-server)
+__allComponents=(game-server game-servers-controller)
 
 function usage() {
   # Save printed components to variable

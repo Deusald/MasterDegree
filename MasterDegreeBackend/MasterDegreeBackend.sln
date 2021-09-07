@@ -6,6 +6,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameLogicPlugin", "GameLogi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameLogicCommon", "GameLogicCommon\GameLogicCommon.csproj", "{654FD003-6F43-4B7C-91AA-A5510083618F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameServersController", "GameServersController\GameServersController.csproj", "{38930E75-AD1D-4EC6-8A5D-2266D3B3E813}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameServersControllerPlugin", "GameServersControllerPlugin\GameServersControllerPlugin.csproj", "{D778F933-A250-4D8D-BAF0-2C2C57357DB5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ControlPanel", "ControlPanel\ControlPanel.csproj", "{8C6D2A36-4D54-4997-AB47-B2609BE0071D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +30,17 @@ Global
 		{654FD003-6F43-4B7C-91AA-A5510083618F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{654FD003-6F43-4B7C-91AA-A5510083618F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{654FD003-6F43-4B7C-91AA-A5510083618F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38930E75-AD1D-4EC6-8A5D-2266D3B3E813}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38930E75-AD1D-4EC6-8A5D-2266D3B3E813}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38930E75-AD1D-4EC6-8A5D-2266D3B3E813}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38930E75-AD1D-4EC6-8A5D-2266D3B3E813}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D778F933-A250-4D8D-BAF0-2C2C57357DB5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D778F933-A250-4D8D-BAF0-2C2C57357DB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D778F933-A250-4D8D-BAF0-2C2C57357DB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D778F933-A250-4D8D-BAF0-2C2C57357DB5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C6D2A36-4D54-4997-AB47-B2609BE0071D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C6D2A36-4D54-4997-AB47-B2609BE0071D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C6D2A36-4D54-4997-AB47-B2609BE0071D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C6D2A36-4D54-4997-AB47-B2609BE0071D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

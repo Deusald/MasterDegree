@@ -1,0 +1,41 @@
+﻿apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api-serviceaccount
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: api-serviceaccount-role
+  namespace: default
+rules:
+  - apiGroups:
+      - ""
+      - agones.dev
+      - autoscaling.agones.dev
+      - allocation.agones.dev
+    resources:
+      - gameserverallocations
+      - gameservers
+      - gameserversets
+      - fleets
+      - fleetautoscalers
+    verbs:
+      - list
+      - create
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: api-serviceaccount-role-binding
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: api-serviceaccount-role
+subjects:
+  - kind: ServiceAccount
+    name: api-serviceaccount
+    namespace: default

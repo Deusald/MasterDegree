@@ -40,6 +40,7 @@ namespace GameLogicCommon
 
         public enum MessageId
         {
+            // Game messages
             ClientHeartBeat,
             ServerHeartBeat,
             PlayerInit,
@@ -49,7 +50,12 @@ namespace GameLogicCommon
             PlayerPosition,
             PutBomb,
             ExplosionResult,
-            BonusTaken
+            BonusTaken,
+
+            // Game Server Controllers Messages
+            AllocateGame,
+            AllocatedGameData,
+            GetAllocatedGameData
         }
 
         public class PlayerInitMsg : INetMessage
@@ -325,6 +331,47 @@ namespace GameLogicCommon
                 Position  = new Vector2(reader.ReadSingle(), reader.ReadSingle());
                 BonusType = (Game.BonusType)reader.ReadByte();
                 PlayerId  = reader.ReadByte();
+            }
+        }
+
+        public class AllocatedGameData : INetMessage
+        {
+            public MessageId MessageId  => MessageId.AllocatedGameData;
+            public bool      IsFrequent => false;
+
+            public string Address { get; set; }
+            public int    Port    { get; set; }
+            public int    Code    { get; set; }
+
+            public void Write(DarkRiftWriter writer)
+            {
+                writer.Write(Address);
+                writer.Write(Port);
+                writer.Write(Code);
+            }
+
+            public void Read(DarkRiftReader reader)
+            {
+                Address = reader.ReadString();
+                Port    = reader.ReadInt32();
+                Code    = reader.ReadInt32();
+            }
+        }
+        
+        public class GetAllocatedGameData : INetMessage
+        {
+            public MessageId MessageId  => MessageId.GetAllocatedGameData;
+            public bool      IsFrequent => false;
+            public int       Code       { get; set; }
+
+            public void Write(DarkRiftWriter writer)
+            {
+                writer.Write(Code);
+            }
+
+            public void Read(DarkRiftReader reader)
+            {
+                Code    = reader.ReadInt32();
             }
         }
     }

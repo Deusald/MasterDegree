@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Update="DarkRift\DarkRift.dll">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>DarkRift.dll</TargetPath>
+        </None>
+        <None Update="DarkRift\DarkRift.pdb">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>DarkRift.pdb</TargetPath>
+        </None>
+        <None Update="DarkRift\DarkRift.xml">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>DarkRift.xml</TargetPath>
+        </None>
+        <None Update="DarkRift\DarkRift.Client.dll">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>DarkRift.Client.dll</TargetPath>
+        </None>
+        <None Update="DarkRift\DarkRift.Client.pdb">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>DarkRift.Client.pdb</TargetPath>
+        </None>
+        <None Update="DarkRift\DarkRift.Client.xml">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>DarkRift.Client.xml</TargetPath>
+        </None>
+        <None Update="DarkRift\DarkRift.Server.dll">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>DarkRift.Server.dll</TargetPath>
+        </None>
+        <None Update="DarkRift\DarkRift.Server.pdb">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>DarkRift.Server.pdb</TargetPath>
+        </None>
+        <None Update="DarkRift\DarkRift.Server.xml">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>DarkRift.Server.xml</TargetPath>
+        </None>
+    </ItemGroup>
+    
+    <ItemGroup>
+      <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.dll</HintPath>
+      </Reference>
+      <Reference Include="DarkRift.Client, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.Client.dll</HintPath>
+      </Reference>
+      <Reference Include="DarkRift.Server, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.Server.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+    
+    <ItemGroup>
+      <ProjectReference Include="..\GameServersControllerPlugin\GameServersControllerPlugin.csproj" />
+    </ItemGroup>
+
+    <Target Name="MovePlugin" AfterTargets="PostBuildEvent">
+        <Copy SourceFiles="$(OutDir)GameServersControllerPlugin.dll" DestinationFolder="$(OutDir)/Plugins" />
+        <Copy SourceFiles="$(OutDir)GameServersControllerPlugin.pdb" DestinationFolder="$(OutDir)/Plugins" />
+    </Target>
+
+</Project>

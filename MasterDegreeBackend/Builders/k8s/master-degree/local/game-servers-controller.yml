@@ -1,0 +1,50 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-servers-controller
+  labels:
+    app: game-servers-controller
+spec:
+  selector:
+    matchLabels:
+      app: game-servers-controller
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: game-servers-controller
+    spec:
+      serviceAccountName: api-serviceaccount
+      containers:
+        - name: game-servers-controller
+          image:  game-servers-controller:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 39998
+              name: default-tcp
+              protocol: TCP
+            - containerPort: 39998
+              name: default-udp
+              protocol: UDP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-servers-controller
+  labels:
+    app: game-servers-controller
+spec:
+  type: NodePort
+  selector:
+    app: game-servers-controller
+  ports:
+    - port: 39998
+      targetPort: 39998
+      nodePort: 31317
+      protocol: TCP
+      name: default-tcp
+    - port: 39998
+      targetPort: 39998
+      protocol: UDP
+      nodePort: 31317
+      name: default-udp

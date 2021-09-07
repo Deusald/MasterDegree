@@ -26,6 +26,8 @@ RUN mkdir "Plugins"
 RUN cp GameLogicPlugin.dll Plugins
 RUN cp GameLogicPlugin.pdb Plugins   
 
+ENV MANUAL false
+
 EXPOSE 39999/tcp
 EXPOSE 39999/udp
 ENTRYPOINT ["dotnet", "GameServer.dll"]
