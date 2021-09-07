@@ -357,12 +357,13 @@ namespace GameLogicCommon
                 Code    = reader.ReadInt32();
             }
         }
-        
+
         public class GetAllocatedGameData : INetMessage
         {
             public MessageId MessageId  => MessageId.GetAllocatedGameData;
             public bool      IsFrequent => false;
-            public int       Code       { get; set; }
+
+            public int Code { get; set; }
 
             public void Write(DarkRiftWriter writer)
             {
@@ -371,7 +372,7 @@ namespace GameLogicCommon
 
             public void Read(DarkRiftReader reader)
             {
-                Code    = reader.ReadInt32();
+                Code = reader.ReadInt32();
             }
         }
     }

@@ -34,6 +34,7 @@ using GuerrillaNtp;
 using SharpBox2D;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using DVector2 = DeusaldSharp.Vector2;
 using Object = UnityEngine.Object;
 using Physics2D = SharpBox2D.Physics2D;
@@ -111,6 +112,7 @@ namespace MasterDegree
 
         public static IPAddress IPAddress { get; set; } = IPAddress.Loopback;
         public static int       Port      { get; set; } = 40000;
+        public static int       Code      { get; set; } = 0;
 
         #endregion Properties
 
@@ -118,6 +120,7 @@ namespace MasterDegree
 
         [SerializeField] private InfoSystem      _InfoSystem;
         [SerializeField] private TextMeshProUGUI _PingText;
+        [SerializeField] private TextMeshProUGUI _CodeText;
         [SerializeField] private GameObject      _DestroyableWallPrefab;
         [SerializeField] private Transform       _DestroyableWallsParent;
         [SerializeField] private GameObject      _PlayerPrefab;
@@ -175,10 +178,16 @@ namespace MasterDegree
             InitPhysics();
             _Client.Connect(IPAddress, Port);
             _Client.MessageReceived += ClientOnMessageReceived;
+            _CodeText.text          =  $"Code: {Code}";
         }
 
         private void Update()
         {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                SceneManager.LoadScene(0);
+            }
+
             _Client.Update();
             SendStartGame();
             ShowPing();

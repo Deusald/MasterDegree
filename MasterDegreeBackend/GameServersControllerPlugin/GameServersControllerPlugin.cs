@@ -101,12 +101,14 @@ namespace GameServersControllerPlugin
 
         private void OnClientConnected(object sender, ClientConnectedEventArgs e)
         {
-            _Logger.Log("Received message, run task", LogType.Info);
-            e.Client.MessageReceived += (o, args) => Task.Run(() => OnMessageReceived(args));
+            _Logger.Log("Client connected.", LogType.Info);
+            e.Client.MessageReceived += OnMessageReceived;
         }
 
-        private async Task OnMessageReceived(MessageReceivedEventArgs e)
+        private void OnMessageReceived(object o, MessageReceivedEventArgs e)
         {
+            _Logger.Log($"Received message with tag {e.Tag}", LogType.Info);
+
             using (Message netMessage = e.GetMessage())
             {
                 using (DarkRiftReader reader = netMessage.GetReader())
@@ -116,52 +118,14 @@ namespace GameServersControllerPlugin
                         case (ushort)Messages.MessageId.AllocateGame:
                         {
                             _Logger.Log("Received allocate game message", LogType.Info);
-                            GameServerAllocation gameServerAllocation = new GameServerAllocation();
-                            HttpOperationResponse<object> result =
-                                await _Kubernetes.CreateNamespacedCustomObjectWithHttpMessagesAsync(gameServerAllocation, "allocation.agones.dev", "v1", "default",
-                                    "gameserverallocations");
-                            _Logger.Log(result.Response.StatusCode.ToString(), LogType.Info);
-                            GameServerAllocationResult allocationResult = JsonConvert.DeserializeObject<GameServerAllocationResult>(result.Body.ToString()!);
-
-                            if (allocationResult!.Status.State == "Allocated")
-                            {
-                                int code = _Random.Next(100000);
-                                Game game = new Game
-                                {
-                                    Address = allocationResult.Status.Address,
-                                    Port    = allocationResult.Status.Ports[0].Port
-                                };
-                                _Games[code] = game;
-
-                                Messages.AllocatedGameData msg = new Messages.AllocatedGameData
-                                {
-                                    Address = game.Address,
-                                    Port    = game.Port,
-                                    Code    = code
-                                };
-
-                                SendMessage(e.Client, msg);
-                                _Logger.Log($"Allocated server {game.Address} {game.Port}", LogType.Info);
-                            }
-                            else
-                            {
-                                Messages.AllocatedGameData msg = new Messages.AllocatedGameData
-                                {
-                                    Address = "",
-                                    Port    = 0,
-                                    Code    = 0
-                                };
-
-                                _Logger.Log("Allocate game failed", LogType.Info);
-                                SendMessage(e.Client, msg);
-                            }
-
+                            Task.Run(() => AllocateNewGame(e.Client));
                             break;
                         }
                         case (ushort)Messages.MessageId.GetAllocatedGameData:
                         {
                             Messages.GetAllocatedGameData msg = new Messages.GetAllocatedGameData();
                             msg.Read(reader);
+                            _Logger.Log($"Received GetAllocatedGameData with code {msg.Code}", LogType.Info);
 
                             Messages.AllocatedGameData msgResponse;
 
@@ -173,6 +137,7 @@ namespace GameServersControllerPlugin
                                     Port    = 0,
                                     Code    = 0
                                 };
+                                _Logger.Log($"Can't find {msg.Code} game", LogType.Info);
                             }
                             else
                             {
@@ -182,6 +147,7 @@ namespace GameServersControllerPlugin
                                     Port    = _Games[msg.Code].Port,
                                     Code    = msg.Code
                                 };
+                                _Logger.Log("Found the game, sending details", LogType.Info);
                             }
 
                             SendMessage(e.Client, msgResponse);
@@ -190,6 +156,49 @@ namespace GameServersControllerPlugin
                         }
                     }
                 }
+            }
+        }
+
+        private async Task AllocateNewGame(IClient client)
+        {
+            GameServerAllocation gameServerAllocation = new GameServerAllocation();
+            HttpOperationResponse<object> result =
+                await _Kubernetes.CreateNamespacedCustomObjectWithHttpMessagesAsync(gameServerAllocation, "allocation.agones.dev", "v1", "default",
+                    "gameserverallocations");
+            _Logger.Log(result.Response.StatusCode.ToString(), LogType.Info);
+            GameServerAllocationResult allocationResult = JsonConvert.DeserializeObject<GameServerAllocationResult>(result.Body.ToString()!);
+
+            if (allocationResult!.Status.State == "Allocated")
+            {
+                int code = _Random.Next(100000);
+                Game game = new Game
+                {
+                    Address = allocationResult.Status.Address,
+                    Port    = allocationResult.Status.Ports[0].Port
+                };
+                _Games[code] = game;
+
+                Messages.AllocatedGameData msg = new Messages.AllocatedGameData
+                {
+                    Address = game.Address,
+                    Port    = game.Port,
+                    Code    = code
+                };
+
+                SendMessage(client, msg);
+                _Logger.Log($"Allocated server {game.Address} {game.Port}", LogType.Info);
+            }
+            else
+            {
+                Messages.AllocatedGameData msg = new Messages.AllocatedGameData
+                {
+                    Address = "",
+                    Port    = 0,
+                    Code    = 0
+                };
+
+                _Logger.Log("Allocate game failed", LogType.Info);
+                SendMessage(client, msg);
             }
         }
 
