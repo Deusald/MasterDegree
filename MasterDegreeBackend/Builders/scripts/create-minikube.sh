@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env bash
 
 # Components (new component should be add here and in docker-build.sh
-__allComponents=(game-server)
+__allComponents=(game-server game-servers-controller)
 
 minikube start --driver=hyperv --cpus=3 --memory=4GB -p masterdegree
 minikube profile masterdegree

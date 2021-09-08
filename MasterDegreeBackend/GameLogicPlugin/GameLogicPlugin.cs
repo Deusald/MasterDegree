@@ -52,7 +52,6 @@ namespace GameLogic
         private readonly GameLogic _GameLogic;
         private readonly AgonesSDK _Agones;
         private readonly bool      _IsManualEnv;
-        private readonly object    _GameStartLock;
 
         private const ushort _ServerTicksPerSecond = 15;
         private const ushort _ServerTickLogEveryX  = _ServerTicksPerSecond * 30;
@@ -65,7 +64,6 @@ namespace GameLogic
         {
             _Logger                                      =  Logger;
             _GameLogic                                   =  new GameLogic(_Logger, _ServerTicksPerSecond, true);
-            _GameStartLock                               =  new object();
             _GameLogic.GameOver                          += GameLogicOnGameOver;
             pluginLoadData.ClientManager.ClientConnected += OnClientConnected;
             _IsManualEnv                                 =  Convert.ToBoolean(Environment.GetEnvironmentVariable("MANUAL"));
@@ -114,6 +112,16 @@ namespace GameLogic
             await _Agones.ReadyAsync();
             _Logger.Log("Set Agones status to Ready.", LogType.Info);
             _Agones.WatchGameServer(GameServerUpdate);
+            GameServer gs = await _Agones.GetGameServerAsync();
+
+            if (gs.ObjectMeta.Labels.ContainsKey("bot"))
+            {
+                await _Agones.AllocateAsync();
+                _GameLogic.SpawnBotPlayer();
+                _GameLogic.SpawnBotPlayer();
+                StartGameLoop();
+                _GameLogic.StartGame();
+            }
         }
 
         private async Task HealthSignal()
@@ -123,26 +131,10 @@ namespace GameLogic
 
         private void GameServerUpdate(GameServer gameServer)
         {
-            lock (_GameStartLock)
-            {
-                if (gameServer.Status.State != "Allocated") return;
-                if (_ServerClock != null) return;
+            if (gameServer.Status.State != "Allocated") return;
+            if (_ServerClock != null) return;
 
-                StartGameLoop();
-
-                if (!gameServer.ObjectMeta.Annotations.ContainsKey("bots")) return;
-
-                int numberOfBots = Int32.Parse(gameServer.ObjectMeta.Annotations["bots"]);
-
-                _Logger.Log($"Spawning {numberOfBots} bots.", LogType.Info);
-
-                for (int i = 0; i < numberOfBots; ++i)
-                {
-                    _GameLogic.SpawnBotPlayer();
-                }
-
-                _GameLogic.StartGame();
-            }
+            StartGameLoop();
         }
 
         private void StartServerClock()
@@ -174,8 +166,22 @@ namespace GameLogic
 
         private void OnMessageReceived(object sender, MessageReceivedEventArgs e)
         {
-            if (e.Tag != (ushort)Messages.MessageId.KillGame) return;
-            GameLogicOnGameOver();
+            if (e.Tag == (ushort)Messages.MessageId.KillGame)
+            {
+                GameLogicOnGameOver();
+            }
+
+            if (e.Tag == (ushort)Messages.MessageId.SpawnBots)
+            {
+                _Logger.Log("Spawning 2 bots.", LogType.Info);
+
+                for (int i = 0; i < 2; ++i)
+                {
+                    _GameLogic.SpawnBotPlayer();
+                }
+
+                _GameLogic.StartGame();
+            }
         }
 
         private void GameLogicOnGameOver()

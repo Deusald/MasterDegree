@@ -1,0 +1,12 @@
+﻿apiVersion: "autoscaling.agones.dev/v1"
+kind: FleetAutoscaler
+metadata:
+  name: game-server-bot-fleet-autoscaler
+spec:
+  fleetName: game-server-bot-fleet
+  policy:
+    type: Buffer
+    buffer:
+      bufferSize: 2
+      minReplicas: 2
+      maxReplicas: 4

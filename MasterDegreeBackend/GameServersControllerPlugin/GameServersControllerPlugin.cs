@@ -7,6 +7,7 @@ using GameLogicCommon;
 using k8s;
 using Microsoft.Rest;
 using Newtonsoft.Json;
+using MessageReceivedEventArgs = DarkRift.Server.MessageReceivedEventArgs;
 
 namespace GameServersControllerPlugin
 {
@@ -16,8 +17,8 @@ namespace GameServersControllerPlugin
 
         private class GameServerAllocation
         {
-            public string ApiVersion { get; }
-            public string Kind       { get; }
+            public string   ApiVersion { get; }
+            public string   Kind       { get; }
 
             public GameServerAllocation()
             {
@@ -32,15 +33,12 @@ namespace GameServersControllerPlugin
             {
                 internal class PortData
                 {
-                    public string Name { get; set; }
                     public int    Port { get; set; }
                 }
 
-                public string     State          { get; set; }
-                public string     GameServerName { get; set; }
-                public PortData[] Ports          { get; set; }
-                public string     Address        { get; set; }
-                public string     NodeName       { get; set; }
+                public string     State   { get; set; }
+                public PortData[] Ports   { get; set; }
+                public string     Address { get; set; }
             }
 
             public StatusData Status { get; set; }
@@ -74,9 +72,9 @@ namespace GameServersControllerPlugin
 
         public GameServersControllerPlugin(PluginLoadData pluginLoadData) : base(pluginLoadData)
         {
-            _Logger = Logger;
-            _Games  = new Dictionary<int, Game>();
-            _Random = new Random();
+            _Logger        = Logger;
+            _Games         = new Dictionary<int, Game>();
+            _Random        = new Random();
             bool isManualEnv = Convert.ToBoolean(Environment.GetEnvironmentVariable("MANUAL"));
 
             KubernetesClientConfiguration config;
