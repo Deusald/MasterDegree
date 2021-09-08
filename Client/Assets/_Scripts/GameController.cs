@@ -111,8 +111,8 @@ namespace MasterDegree
         #region Properties
 
         public static IPAddress IPAddress { get; set; } = IPAddress.Loopback;
-        public static int       Port      { get; set; } = 40000;
-        public static int       Code      { get; set; } = 0;
+        public static int       Port      { get; set; } = 39999;
+        public static int       Code      { get; set; }
 
         #endregion Properties
 

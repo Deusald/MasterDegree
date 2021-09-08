@@ -29,6 +29,7 @@ using Agones.Dev.Sdk;
 using DarkRift;
 using DarkRift.Server;
 using DeusaldSharp;
+using GameLogicCommon;
 using GuerrillaNtp;
 
 namespace GameLogic
@@ -68,10 +69,17 @@ namespace GameLogic
             _GameLogic.GameOver                          += GameLogicOnGameOver;
             pluginLoadData.ClientManager.ClientConnected += OnClientConnected;
             _IsManualEnv                                 =  Convert.ToBoolean(Environment.GetEnvironmentVariable("MANUAL"));
-                
+
             if (_IsManualEnv)
             {
                 StartGameLoop();
+                
+                int bots = Convert.ToInt32(Environment.GetEnvironmentVariable("BOTS"));
+
+                for (int i = 0; i < bots; ++i)
+                {
+                    _GameLogic.SpawnBotPlayer();
+                }
             }
             else
             {
@@ -119,7 +127,21 @@ namespace GameLogic
             {
                 if (gameServer.Status.State != "Allocated") return;
                 if (_ServerClock != null) return;
+
                 StartGameLoop();
+
+                if (!gameServer.ObjectMeta.Annotations.ContainsKey("bots")) return;
+
+                int numberOfBots = Int32.Parse(gameServer.ObjectMeta.Annotations["bots"]);
+
+                _Logger.Log($"Spawning {numberOfBots} bots.", LogType.Info);
+
+                for (int i = 0; i < numberOfBots; ++i)
+                {
+                    _GameLogic.SpawnBotPlayer();
+                }
+
+                _GameLogic.StartGame();
             }
         }
 
@@ -147,8 +169,15 @@ namespace GameLogic
         private void OnClientConnected(object sender, ClientConnectedEventArgs e)
         {
             _GameLogic.OnClientConnected(e.Client);
+            e.Client.MessageReceived += OnMessageReceived;
         }
-        
+
+        private void OnMessageReceived(object sender, MessageReceivedEventArgs e)
+        {
+            if (e.Tag != (ushort)Messages.MessageId.KillGame) return;
+            GameLogicOnGameOver();
+        }
+
         private void GameLogicOnGameOver()
         {
             if (_IsManualEnv)

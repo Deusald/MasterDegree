@@ -24,7 +24,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Box2D;
 using Box2D.NetStandard.Dynamics.Bodies;
 using DarkRift;
 using DarkRift.Server;
@@ -40,30 +39,38 @@ namespace GameLogic
 
         public class Player
         {
-            public byte                               Id                  { get; }
-            public IClient                            Client              { get; set; }
-            public IPhysicsObject                     PhysicsObj          { get; set; }
-            public ICollider                          Collider            { get; set; }
-            public bool                               IsDead              { get; set; }
-            public bool                               HasDetonator        { get; set; }
-            public Dictionary<uint, Game.PlayerInput> Inputs              { get; }
-            public Dictionary<uint, Vector2>          Positions           { get; }
-            public uint                               OldestPositionFrame { get; set; }
-            public HashSet<Vector2>                   Bombs               { get; }
-            public byte                               Power               { get; set; }
-            public byte                               MaxBombs            { get; set; }
+            public byte                               Id                      { get; }
+            public IClient                            Client                  { get; set; }
+            public IPhysicsObject                     PhysicsObj              { get; set; }
+            public ICollider                          Collider                { get; set; }
+            public bool                               IsDead                  { get; set; }
+            public bool                               HasDetonator            { get; set; }
+            public Dictionary<uint, Game.PlayerInput> Inputs                  { get; }
+            public Dictionary<uint, Vector2>          Positions               { get; }
+            public uint                               OldestPositionFrame     { get; set; }
+            public HashSet<Vector2>                   Bombs                   { get; }
+            public byte                               Power                   { get; set; }
+            public byte                               MaxBombs                { get; set; }
+            public bool                               IsBot                   { get; set; }
+            public Vector2                            BotTarget                  { get; set; }
+            public uint                               BotFramesToPutBomb      { get; set; }
+            public uint                               BotFramesToDetonateBomb { get; set; }
 
             public Player(byte id)
             {
-                Id                  = id;
-                IsDead              = false;
-                HasDetonator        = false;
-                Inputs              = new Dictionary<uint, Game.PlayerInput>();
-                Positions           = new Dictionary<uint, Vector2>();
-                Bombs               = new HashSet<Vector2>();
-                Power               = 1;
-                MaxBombs            = 1;
-                OldestPositionFrame = uint.MaxValue;
+                Id                      = id;
+                IsDead                  = false;
+                HasDetonator            = false;
+                Inputs                  = new Dictionary<uint, Game.PlayerInput>();
+                Positions               = new Dictionary<uint, Vector2>();
+                Bombs                   = new HashSet<Vector2>();
+                Power                   = 1;
+                MaxBombs                = 1;
+                OldestPositionFrame     = uint.MaxValue;
+                IsBot                   = false;
+                BotFramesToDetonateBomb = 10;
+                BotFramesToPutBomb      = 10;
+                BotTarget               = Vector2.Zero;
             }
         }
 
@@ -92,7 +99,7 @@ namespace GameLogic
         #region Variables
 
         public event Action GameOver;
-        
+
         private Game.GameState   _GameState;
         private Physics2DControl _Physics;
         private float            _SimulationAccumulatedTime;
@@ -110,6 +117,14 @@ namespace GameLogic
         private readonly Dictionary<Vector2, GameObject> _Bombs;
         private readonly Dictionary<Vector2, GameObject> _Bonuses;
 
+        private readonly Vector2[] _BotPossibleTargets = new[]
+        {
+            new Vector2(-3, 3), new Vector2(-1, 3), new Vector2(1, 3), new Vector2(3, 3),
+            new Vector2(-3, 1), new Vector2(-1, 1), new Vector2(1, 1), new Vector2(3, 1),
+            new Vector2(-3, -1), new Vector2(-1, -1), new Vector2(1, -1), new Vector2(3, -1),
+            new Vector2(-3, -3), new Vector2(-1, -3), new Vector2(1, -3), new Vector2(3, -3)
+        };
+        
         #endregion Variables
 
         #region Special Methods
@@ -146,6 +161,7 @@ namespace GameLogic
                 while (_SimulationAccumulatedTime >= _FixedDeltaTime)
                 {
                     _SimulationAccumulatedTime -= _FixedDeltaTime;
+                    SimulateBotsInput();
                     ++_PhysicsTickNumber;
                     ProcessPlayersInputs();
                     FixedUpdate();
@@ -177,21 +193,26 @@ namespace GameLogic
                 {
                     Client     = client,
                     PhysicsObj = physicsPlayer.Item1,
-                    Collider   = physicsPlayer.Item2
+                    Collider   = physicsPlayer.Item2,
+                    IsBot      = client == null
                 };
 
                 _Players.Add(player);
-                _ClientIdToPlayerId.Add(client.ID, playerId);
-                client.MessageReceived += OnMessageReceivedFromPlayer;
 
-                Messages.PlayerInitMsg playerInitMsg = new Messages.PlayerInitMsg
+                if (client != null)
                 {
-                    WallSpawned           = _SpawnDestroyableWalls,
-                    YourId                = playerId,
-                    ServerClockStartTimer = ServerClockStartTime
-                };
+                    _ClientIdToPlayerId.Add(client.ID, playerId);
+                    client.MessageReceived += OnMessageReceivedFromPlayer;
 
-                SendMessageToPlayer(playerId, playerInitMsg);
+                    Messages.PlayerInitMsg playerInitMsg = new Messages.PlayerInitMsg
+                    {
+                        WallSpawned           = _SpawnDestroyableWalls,
+                        YourId                = playerId,
+                        ServerClockStartTimer = ServerClockStartTime
+                    };
+
+                    SendMessageToPlayer(playerId, playerInitMsg);
+                }
 
                 Messages.SpawnPlayer spawnPlayerMsg = new Messages.SpawnPlayer
                 {
@@ -200,6 +221,16 @@ namespace GameLogic
 
                 SendMessageToAllPlayers(spawnPlayerMsg);
             }
+        }
+
+        public void SpawnBotPlayer()
+        {
+            OnClientConnected(null);
+        }
+
+        public void StartGame()
+        {
+            ReceivedStartMessage();
         }
 
         #endregion Public Methods
@@ -258,6 +289,68 @@ namespace GameLogic
         #endregion Init
 
         #region Update
+
+        private void SimulateBotsInput()
+        {
+            if (_GameState != Game.GameState.Running) return;
+
+            foreach (Player player in _Players)
+            {
+                if (!player.IsBot) continue;
+                player.BotFramesToPutBomb      -= 1;
+                player.BotFramesToDetonateBomb -= 1;
+
+                if (player.BotTarget == Vector2.Zero || Vector2.Distance(player.PhysicsObj.Position, player.BotTarget) < 0.2f)
+                {
+                    player.BotTarget = _BotPossibleTargets[_Random.Next(0, _BotPossibleTargets.Length)];
+                }
+                
+                Vector2 direction;
+                bool    detonate = false;
+                bool    putBomb  = false;
+
+                if (MathF.Abs(player.PhysicsObj.Position.x - player.BotTarget.x) > 0.2f)
+                {
+                    direction = player.PhysicsObj.Position.x - player.BotTarget.x > 0 ? Vector2.Left : Vector2.Right;
+                }
+                else
+                {
+                    direction = player.PhysicsObj.Position.y - player.BotTarget.y > 0 ? Vector2.Down : Vector2.Up;
+                }
+                
+                if (player.BotFramesToPutBomb == 0)
+                {
+                    putBomb                        = true;
+                    player.BotFramesToPutBomb      = (uint)(_NumberOfFramesPerSecond * 2);
+                    player.BotFramesToDetonateBomb = (uint)(_NumberOfFramesPerSecond + 10);
+                }
+
+                if (player.BotFramesToDetonateBomb == 0)
+                {
+                    detonate = true;
+                }
+
+                Messages.PlayerInputMsg msg = new Messages.PlayerInputMsg
+                {
+                    StoredInputs = new Dictionary<uint, Game.PlayerInput>
+                    {
+                        {
+                            _PhysicsTickNumber + 1, new Game.PlayerInput
+                            {
+                                Direction = direction,
+                                Detonate  = detonate,
+                                Frame     = _PhysicsTickNumber + 1,
+                                PutBomb   = putBomb
+                            }
+                        }
+                    },
+                    LastInputFrame   = _PhysicsTickNumber + 1,
+                    OldestInputFrame = _PhysicsTickNumber + 1
+                };
+
+                PlayerInputReceived(msg, player.Id);
+            }
+        }
 
         private void ProcessPlayersInputs()
         {
@@ -509,7 +602,7 @@ namespace GameLogic
                 byte detonatorPlayer = (byte)frameToDestroy;
 
                 // We calculate how many frames of delay player had when he detonated bomb while seeing enemy
-                uint playerTriggeringDelayInFrames = (uint)MathF.Ceiling(_Players[detonatorPlayer].Client.RoundTripTime.SmoothedRtt / _FixedDeltaTime);
+                uint playerTriggeringDelayInFrames = _Players[detonatorPlayer].IsBot ? 0 : (uint)MathF.Ceiling(_Players[detonatorPlayer].Client.RoundTripTime.SmoothedRtt / _FixedDeltaTime);
 
                 // This position is from the past but it was the present frame of enemy position when player detonated bomb
                 uint frameInPast = _PhysicsTickNumber - playerTriggeringDelayInFrames - 1;
@@ -567,7 +660,7 @@ namespace GameLogic
             }
 
             SendMessageToAllPlayers(explosionResult);
-            
+
             CheckEndGame();
 
             // Return lag compensation movements
@@ -613,6 +706,9 @@ namespace GameLogic
 
                 if (objectId.ObjectType == Game.ObjectType.Player)
                 {
+                    byte playerId = (byte)objectId.Id;
+                    // Don't kill the bots so they can play until server will be killed
+                    if (_Players[playerId].IsBot) continue;
                     playersKilled.Add((byte)objectId.Id);
                 }
                 else if (objectId.ObjectType == Game.ObjectType.DestroyableWall)
@@ -757,7 +853,7 @@ namespace GameLogic
                 if (player.IsDead) continue;
                 ++numberOfAlivePlayers;
             }
-            
+
             if (numberOfAlivePlayers > 1) return;
             _GameState = Game.GameState.Ended;
             _Logger.Log("Game Over", LogType.Info);
@@ -778,6 +874,7 @@ namespace GameLogic
                 {
                     foreach (Player player in _Players)
                     {
+                        if (player.IsBot) continue;
                         player.Client.SendMessage(netMessage, message.IsFrequent ? SendMode.Unreliable : SendMode.Reliable);
                     }
                 }
@@ -786,6 +883,8 @@ namespace GameLogic
 
         private void SendMessageToPlayer(int playerId, Messages.INetMessage message)
         {
+            if (_Players[playerId].IsBot) return;
+
             using (DarkRiftWriter messageWriter = DarkRiftWriter.Create())
             {
                 message.Write(messageWriter);
@@ -802,6 +901,8 @@ namespace GameLogic
             // Heartbeat messages are sent and received every fixed frame to calculate rtt between server and client
             foreach (Player player in _Players)
             {
+                if (player.Client == null) continue;
+
                 using (DarkRiftWriter writer = DarkRiftWriter.Create())
                 {
                     using (Message message = Message.Create((ushort)Messages.MessageId.ServerHeartBeat, writer))
@@ -813,14 +914,20 @@ namespace GameLogic
             }
         }
 
-        private void SendStartMessage()
+        private void ReceivedStartMessage()
         {
+            if (_Players.Count < 2) return;
+            _GameState = Game.GameState.Running;
+
             using (DarkRiftWriter messageWriter = DarkRiftWriter.Create())
             {
                 using (Message netMessage = Message.Create((ushort)Messages.MessageId.StartGame, messageWriter))
                 {
                     foreach (Player player in _Players)
+                    {
+                        if (player.IsBot) continue;
                         player.Client.SendMessage(netMessage, SendMode.Reliable);
+                    }
                 }
             }
         }
@@ -855,9 +962,7 @@ namespace GameLogic
                         {
                             case (ushort)Messages.MessageId.StartGame:
                             {
-                                if (_Players.Count < 2) break;
-                                _GameState = Game.GameState.Running;
-                                SendStartMessage();
+                                ReceivedStartMessage();
                                 break;
                             }
                             case (ushort)Messages.MessageId.PlayerInput:

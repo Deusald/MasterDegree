@@ -4,7 +4,8 @@
     "GameServer": {
       "commandName": "Project",
       "environmentVariables": {
-        "MANUAL": "true"
+        "MANUAL": "true",
+        "BOTS": "1"
       }
     }
   }

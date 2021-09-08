@@ -55,7 +55,8 @@ namespace GameLogicCommon
             // Game Server Controllers Messages
             AllocateGame,
             AllocatedGameData,
-            GetAllocatedGameData
+            GetAllocatedGameData,
+            KillGame
         }
 
         public class PlayerInitMsg : INetMessage
