@@ -380,7 +380,10 @@ namespace GameLogic
                     }
                 }
 
-                player.Inputs.Remove(_PhysicsTickNumber);
+                if (player.Inputs.ContainsKey(_PhysicsTickNumber - 1))
+                {
+                    player.Inputs.Remove(_PhysicsTickNumber - 1);
+                }
             }
         }
 
@@ -1012,6 +1015,7 @@ namespace GameLogic
 
                 for (int x = maxX; x >= minX; --x)
                 {
+                    if (x % 2 == 0 && y % 2 == 0) continue;
                     spawnWallCallback?.Invoke(new Vector2(x, y));
                 }
             }

@@ -69,6 +69,7 @@ namespace MasterDegree
         {
             public IPhysicsObject    PhysicsObj                        { get; set; }
             public GameObject        VisualGameObject                  { get; set; }
+            public PlayerAnimator    PlayerAnimator                    { get; set; }
             public bool              IsDead                            { get; set; }
             public DVector2          LastPosition                      { get; set; }
             public DVector2          LastPositionReceivedFromServer    { get; set; }
@@ -149,12 +150,6 @@ namespace MasterDegree
 
         private const int   _FramesPerSecond = 15;
         private const float _FixedDeltaTime  = 1f / _FramesPerSecond;
-
-        private readonly Color32[] _PlayersColors =
-        {
-            new Color32(255, 57, 45, 255), new Color32(85, 189, 255, 255),
-            new Color32(255, 218, 74, 255), new Color32(131, 255, 58, 255)
-        };
 
         #endregion Variables
 
@@ -323,7 +318,7 @@ namespace MasterDegree
             if (_GameState != Game.GameState.BeforeStart) return;
 
             if (!Input.GetKeyDown(KeyCode.Return)) return;
-            
+
             if (_Players.Count(x => x != null) < 2)
             {
                 _InfoSystem.AddInfo("Can't start game yet. Minimum number of players is 2.", 1.5f);
@@ -453,6 +448,7 @@ namespace MasterDegree
             DVector2 position = _Players[_MyPlayerId].PhysicsObj.Position;
             _Players[_MyPlayerId].PhysicsObj.MovePosition(position + newInput.Direction * (_FixedDeltaTime * Game.PlayerSpeed));
             _Players[_MyPlayerId].LastPosition = _Players[_MyPlayerId].PhysicsObj.Position;
+            _Players[_MyPlayerId].PlayerAnimator.SetDirection(newInput.Direction);
 
             if (newInput.PutBomb)
             {
@@ -509,7 +505,7 @@ namespace MasterDegree
                     _Players[i].LastPosition = _Players[i].PhysicsObj.Position;
                     DVector2 newPlayerPosition = _Players[i].LastPositionReceivedFromServer;
                     newPlayerPosition += _Players[i].LastPreviousDirReceivedFromServer *
-                                         ((_MyCurrentFrame - _Players[i].FrameOfLastReceivedDataFromServer) * _FixedDeltaTime * Game.PlayerSpeed);
+                                         (_FixedDeltaTime * Game.PlayerSpeed);
                     _Players[i].PhysicsObj.MovePosition(newPlayerPosition);
                 }
             }
@@ -669,12 +665,9 @@ namespace MasterDegree
                     Quaternion.identity);
                 playerVisual.transform.SetParent(_PlayersParent, true);
                 player.VisualGameObject = playerVisual;
-
-                MeshRenderer meshRenderer = playerVisual.GetComponent<MeshRenderer>();
-                Material     newMaterial  = new Material(meshRenderer.material);
-                newMaterial.color     = _PlayersColors[i];
-                meshRenderer.material = newMaterial;
-
+                player.PlayerAnimator   = playerVisual.GetComponent<PlayerAnimator>();
+                player.PlayerAnimator.SetColor((byte)i);
+                player.PlayerAnimator.SetDirection(DVector2.Down);
                 player.LastPosition = player.PhysicsObj.Position;
 
                 _Players[i] = player;
@@ -688,6 +681,10 @@ namespace MasterDegree
             _Players[playerPositionMsg.PlayerId].LastPositionReceivedFromServer    = playerPositionMsg.Position;
             _Players[playerPositionMsg.PlayerId].LastPreviousDirReceivedFromServer = playerPositionMsg.PreviousDir;
             _Players[playerPositionMsg.PlayerId].FrameOfLastReceivedDataFromServer = playerPositionMsg.Frame;
+            
+            if (playerPositionMsg.PlayerId == _MyPlayerId) return;
+            Debug.Log(playerPositionMsg.PreviousDir);
+            _Players[playerPositionMsg.PlayerId].PlayerAnimator.SetDirection(playerPositionMsg.PreviousDir);
         }
 
         private void PutBombMessage(Messages.PutBomb msg)
@@ -696,7 +693,7 @@ namespace MasterDegree
             {
                 msg.FrameToDestroy += 1; // We are always one frame ahead of server (this is to have synchronization with explosion result)
                 // Adding have of rtt as frames to hide explosion lag
-                msg.FrameToDestroy += (uint) MathF.Ceiling(_Client.Client.RoundTripTime.SmoothedRtt / 2f / _FixedDeltaTime);
+                msg.FrameToDestroy += (uint)MathF.Ceiling(_Client.Client.RoundTripTime.SmoothedRtt / 2f / _FixedDeltaTime);
             }
 
             if (msg.PlayerId == _MyPlayerId)
@@ -725,18 +722,18 @@ namespace MasterDegree
 
             foreach (int playerKilled in msg.PlayersKilled)
             {
-                _Players[playerKilled].PhysicsObj.Enabled                                    = false;
-                _Players[playerKilled].VisualGameObject.GetComponent<MeshRenderer>().enabled = false;
-                _Players[playerKilled].IsDead                                                = true;
+                _Players[playerKilled].PhysicsObj.Enabled = false;
+                _Players[playerKilled].VisualGameObject.SetActive(false);
+                _Players[playerKilled].IsDead = true;
             }
-            
+
             foreach (DVector2 position in msg.BonusesDestroyed)
             {
                 if (!_Bonuses.ContainsKey(position)) continue;
                 _Bonuses[position].Destroy();
                 _Bonuses.Remove(position);
             }
-            
+
             foreach (var pair in msg.BonusesSpawned)
             {
                 SpawnBonus(pair.Key, pair.Value);
@@ -744,20 +741,20 @@ namespace MasterDegree
 
             if (_Bombs.ContainsKey(msg.BombPosition))
             {
-                DVector2 pos   = msg.BombPosition;
+                DVector2 pos = msg.BombPosition;
                 _Bombs[pos].Destroy();
                 _Bombs.Remove(pos);
-                
+
                 if (_Players[_MyPlayerId].Bombs.Contains(pos))
                 {
                     _Players[_MyPlayerId].Bombs.Remove(pos);
                 }
             }
-            
+
             Explode(msg);
             CheckEndGame();
         }
-        
+
         private void CheckEndGame()
         {
             int numberOfAlivePlayers = 0;
@@ -768,7 +765,7 @@ namespace MasterDegree
                 if (player.IsDead) continue;
                 ++numberOfAlivePlayers;
             }
-            
+
             if (numberOfAlivePlayers > 1) return;
             _GameState = Game.GameState.Ended;
             _InfoSystem.AddInfo("Game Over!", 3f);
@@ -780,11 +777,11 @@ namespace MasterDegree
             {
                 ++_Players[_MyPlayerId].MaxBombs;
             }
-            
+
             _Bonuses[bonusTaken.Position].Destroy();
             _Bonuses.Remove(bonusTaken.Position);
         }
-        
+
         #endregion Messages
 
         #region Bombs And Bonuses
@@ -905,35 +902,13 @@ namespace MasterDegree
                 Instantiate(_ExplosionPrefab, explosionPosition, Quaternion.identity);
             }
         }
-        
+
         private void SpawnBonus(DVector2 position, Game.BonusType bonusType)
         {
-            GameObject   bonus        = Instantiate(_BonusPrefab, new Vector3(position.x, 0.5f, position.y), Quaternion.identity);
+            GameObject bonus = Instantiate(_BonusPrefab, new Vector3(position.x, 0.5f, position.y), Quaternion.identity);
             bonus.transform.SetParent(_BonusesParent, true);
-            MeshRenderer meshRenderer = bonus.GetComponent<MeshRenderer>();
-            Material     newMaterial  = new Material(meshRenderer.material);
+            bonus.GetComponent<BonusMaterial>().SetBonusTextureOnMaterial(bonusType);
 
-            switch (bonusType)
-            {
-                case Game.BonusType.Power:
-                {
-                    newMaterial.color = Color.yellow;
-                    break;
-                }
-                case Game.BonusType.Bomb:
-                {
-                    newMaterial.color = Color.red;
-                    break;
-                }
-                case Game.BonusType.Detonator:
-                {
-                    newMaterial.color = Color.cyan;
-                    break;
-                }
-            }
-
-            meshRenderer.material = newMaterial;
-            
             _Bonuses.Add(position, new ServerGameObject
             {
                 PhysicsObj       = null,
@@ -964,6 +939,7 @@ namespace MasterDegree
 
                 for (int x = maxX; x >= minX; --x)
                 {
+                    if (x % 2 == 0 && y % 2 == 0) continue;
                     spawnWallCallback?.Invoke(new DVector2(x, y));
                 }
             }

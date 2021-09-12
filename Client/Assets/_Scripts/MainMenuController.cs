@@ -106,7 +106,7 @@ public class MainMenuController : MonoBehaviour
     {
         if (_ButtonBlock) return;
         _ButtonBlock = true;
-        int code = Int32.Parse(_InputField.text);
+        Int32.TryParse(_InputField.text, out int code);
 
         using (DarkRiftWriter writer = DarkRiftWriter.Create())
         {
