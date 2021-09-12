@@ -12,7 +12,7 @@ COPY GameServer ./GameServer
 COPY GameLogicPlugin ./GameLogicPlugin
 COPY GameLogicCommon ./GameLogicCommon
 COPY DarkRift ./DarkRift
-COPY Box2D.NetStandard ./Box2D.NetStandard
+COPY Box2DSharp ./Box2DSharp
 COPY SharpBox2d ./SharpBox2d
 ARG build_configuration=Release
 RUN dotnet publish -c ${build_configuration} -o ./GameServer/out ./GameServer

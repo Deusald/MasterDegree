@@ -21,7 +21,7 @@ public class MainMenuController : MonoBehaviour
     private DrClient _Client;
     private bool     _ButtonBlock;
 
-    private const string _GameServersControllerAddress = "172.20.68.94";
+    private const string _GameServersControllerAddress = "172.25.202.126"; //"134.122.95.19";
     private const int    _GameServersControllerPort    = 31317;
 
     #endregion Variables

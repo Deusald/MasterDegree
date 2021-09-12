@@ -61,7 +61,7 @@ case "$__env" in
         kubectl config use-context "${__context:-"masterdegree"}"
         ;;
     prod)
-        kubectl config use-context "${__context:-"do-masterdegree"}"
+        kubectl config use-context "${__context:-"do-bomberman"}"
         ;;
     *)
         echo "Unsupported environment: $__env"

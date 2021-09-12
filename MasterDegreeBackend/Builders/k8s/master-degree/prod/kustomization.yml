@@ -1,0 +1,10 @@
+﻿apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - game-server-fleet.yml
+  - game-server-fleet-autoscaler.yml
+  - game-server-bot-fleet.yml
+  - game-server-bot-fleet-autoscaler.yml
+  - ingress.yml
+  - game-servers-controller.yml
+  - roles.yml

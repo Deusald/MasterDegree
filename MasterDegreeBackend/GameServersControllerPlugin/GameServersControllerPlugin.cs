@@ -54,7 +54,7 @@ namespace GameServersControllerPlugin
 
         #region Properties
 
-        public override Version Version    => new Version(0, 2, 0);
+        public override Version Version    => new Version(1, 0, 0);
         public override bool    ThreadSafe => true;
 
         #endregion Properties

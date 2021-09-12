@@ -63,7 +63,7 @@ case "${__positionalArgs[1]}" in
         __kubeCtx="${__cluster:-"masterdegree"}"
         ;;  
     prod)
-        __kubeCtx="${__cluster:-"do-masterdegree"}"
+        __kubeCtx="${__cluster:-"do-bomberman"}"
         ;;
     *)
         echo "Unsupported environment: ${__positionalArgs[1]}"

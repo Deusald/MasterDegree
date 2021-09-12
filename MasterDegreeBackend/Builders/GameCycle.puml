@@ -1,0 +1,60 @@
+﻿@startuml
+
+autonumber
+
+participant Gracz1
+participant Gracz2
+participant KontrolerSerwerów
+participant Agones
+participant SerwerGry
+
+KontrolerSerwerów -> Agones: Przygotuj serwery
+
+note over Agones
+Utworzenie gotowych 
+serwerów gry
+end note
+
+Gracz1 -> KontrolerSerwerów: Prośba o nowy serwer
+KontrolerSerwerów -> Agones: Czy są jeszcze dostępne serwery?
+Agones -> SerwerGry: Alokacja serwera
+SerwerGry -> SerwerGry: Rozpoczęcie cyklu gry, \ngotowość do przyjęcia graczy
+Agones -> KontrolerSerwerów: Przesłanie IP oraz portów \ndla nowego serwera
+KontrolerSerwerów -> Gracz1: Przesłanie IP, portów oraz kodu\nnowego serwera
+Gracz1 -> Gracz1: Przejście na scenę gry
+Gracz1 -> SerwerGry: Połącznie z serwerem gry
+SerwerGry -> SerwerGry: Utworzenie połączonego gracza\nw świecie fizyki
+SerwerGry -> Gracz1: Przekazanie informacji o stanie mapy i numerze gracza
+Gracz2 -> KontrolerSerwerów: Wysłanie prośby o dołączenie do gry\n(przesłanie kodu gry w wiadomości)
+KontrolerSerwerów -> Gracz2: Przesłanie IP oraz portów z pamięci\n(jeśli gra istnieje)
+Gracz2 -> Gracz2: Przejście na scenę gry
+Gracz2 -> SerwerGry: Połącznie z serwerem gry
+SerwerGry -> SerwerGry: Utworzenie połączonego gracza\nw świecie fizyki
+SerwerGry -> Gracz2: Przekazanie informacji o stanie mapy i numerze gracza
+Gracz1 -> SerwerGry: Wystartowanie gry
+
+note over SerwerGry
+Rozpoczęcie gry
+end note
+
+...
+
+Gracz1 -> SerwerGry: Wysyłanie danych wejściowych
+SerwerGry -> Gracz1: Przekazywanie informacji o stanie gry
+Gracz2 -> SerwerGry: Wysyłanie danych wejściowych
+SerwerGry -> Gracz2: Przekazywanie informacji o stanie gry
+
+...
+
+note over SerwerGry
+Koniec gry
+end note
+
+Gracz1 -> Gracz1: Rozłączenie od serwera gry,\npowrót do głównego menu,\nponowne podłączenie się do kontrolera serwerów
+Gracz2 -> Gracz2: Rozłączenie od serwera gry,\npowrót do głównego menu,\nponowne podłączenie się do kontrolera serwerów
+
+SerwerGry -> Agones: Informacja o zakończeniu gry
+Agones -> SerwerGry: Zamknięcie tego serwera
+Agones -> Agones: Postawienie nowej instacji serwera gry
+
+@enduml

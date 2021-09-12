@@ -24,7 +24,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Box2D.NetStandard.Dynamics.Bodies;
+using Box2DSharp.Dynamics;
 using DarkRift;
 using DarkRift.Server;
 using DeusaldSharp;
@@ -272,7 +272,7 @@ namespace GameLogic
 
             FillDestroyableWalls(vector2 =>
             {
-                IPhysicsObject wall = _Physics.CreatePhysicsObject(BodyType.Kinematic, vector2, 0f);
+                IPhysicsObject wall = _Physics.CreatePhysicsObject(BodyType.KinematicBody, vector2, 0f);
                 wall.UserData = objectId;
                 wall.AddBoxCollider(0.5f, 0.5f);
 
@@ -531,7 +531,7 @@ namespace GameLogic
 
             if (hitBreak) return;
 
-            IPhysicsObject physicsBomb  = _Physics.CreatePhysicsObject(BodyType.Kinematic, bombPos, 0f);
+            IPhysicsObject physicsBomb  = _Physics.CreatePhysicsObject(BodyType.KinematicBody, bombPos, 0f);
             ICollider      bombCollider = physicsBomb.AddCircleCollider(0.5f);
             bombCollider.IsSensor = onPlayer;
 
@@ -767,7 +767,7 @@ namespace GameLogic
 
         private void SpawnBonus(Vector2 position, Game.BonusType bonusType)
         {
-            IPhysicsObject bonus = _Physics.CreatePhysicsObject(BodyType.Static, position, 0);
+            IPhysicsObject bonus = _Physics.CreatePhysicsObject(BodyType.StaticBody, position, 0);
             bonus.UserData = new Game.PhysicsObjectId
             {
                 ObjectType = Game.ObjectType.Bonus,
@@ -1025,19 +1025,19 @@ namespace GameLogic
                 ObjectType = Game.ObjectType.StaticWall
             };
 
-            IPhysicsObject leftWall = physics.CreatePhysicsObject(BodyType.Static, Vector2.Zero, 0f);
+            IPhysicsObject leftWall = physics.CreatePhysicsObject(BodyType.StaticBody, Vector2.Zero, 0f);
             leftWall.UserData = objectId;
             leftWall.AddEdgeCollider(new Vector2(-3.5f, -3.5f), new Vector2(-3.5f, 3.5f));
 
-            IPhysicsObject rightWall = physics.CreatePhysicsObject(BodyType.Static, Vector2.Zero, 0f);
+            IPhysicsObject rightWall = physics.CreatePhysicsObject(BodyType.StaticBody, Vector2.Zero, 0f);
             rightWall.UserData = objectId;
             rightWall.AddEdgeCollider(new Vector2(3.5f, -3.5f), new Vector2(3.5f, 3.5f));
 
-            IPhysicsObject upWall = physics.CreatePhysicsObject(BodyType.Static, Vector2.Zero, 0f);
+            IPhysicsObject upWall = physics.CreatePhysicsObject(BodyType.StaticBody, Vector2.Zero, 0f);
             upWall.UserData = objectId;
             upWall.AddEdgeCollider(new Vector2(-3.5f, 3.5f), new Vector2(3.5f, 3.5f));
 
-            IPhysicsObject downWall = physics.CreatePhysicsObject(BodyType.Static, Vector2.Zero, 0f);
+            IPhysicsObject downWall = physics.CreatePhysicsObject(BodyType.StaticBody, Vector2.Zero, 0f);
             downWall.UserData = objectId;
             downWall.AddEdgeCollider(new Vector2(-3.5f, -3.5f), new Vector2(3.5f, -3.5f));
         }
@@ -1054,7 +1054,7 @@ namespace GameLogic
             {
                 for (int y = -2; y <= 2; y += 2)
                 {
-                    IPhysicsObject wall = physics.CreatePhysicsObject(BodyType.Static, new Vector2(x, y), 0f);
+                    IPhysicsObject wall = physics.CreatePhysicsObject(BodyType.StaticBody, new Vector2(x, y), 0f);
                     wall.UserData = objectId;
                     wall.AddBoxCollider(0.5f, 0.5f);
                 }
@@ -1063,7 +1063,7 @@ namespace GameLogic
 
         private (IPhysicsObject, ICollider) SpawnPlayer(byte id, Physics2D physics2D)
         {
-            IPhysicsObject player = physics2D.CreatePhysicsObject(BodyType.Dynamic, Game.PlayersSpawnPoints[id], 0);
+            IPhysicsObject player = physics2D.CreatePhysicsObject(BodyType.DynamicBody, Game.PlayersSpawnPoints[id], 0);
             player.FixedRotation = true;
             player.UserData = new Game.PhysicsObjectId
             {

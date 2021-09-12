@@ -49,8 +49,8 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Reference Include="Box2D.NetStandard, Version=2.4.2.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\Box2D.NetStandard\Box2D.NetStandard.dll</HintPath>
+      <Reference Include="Box2DSharp, Version=0.6.0.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\Box2DSharp\Box2DSharp.dll</HintPath>
       </Reference>
       <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
         <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.dll</HintPath>
