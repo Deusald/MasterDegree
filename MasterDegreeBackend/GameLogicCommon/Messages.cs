@@ -56,7 +56,6 @@ namespace GameLogicCommon
             AllocateGame,
             AllocatedGameData,
             GetAllocatedGameData,
-            SpawnBots,
             KillGame
         }
 

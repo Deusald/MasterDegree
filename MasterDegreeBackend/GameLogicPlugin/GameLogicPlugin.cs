@@ -48,6 +48,7 @@ namespace GameLogic
         private long        _ServerClockStartTime;
         private ServerClock _ServerClock;
         private AgonesSDK   _Agones;
+        private bool        _BotsGame;
 
         private readonly Logger      _Logger;
         private readonly GameLogic   _GameLogic;
@@ -74,6 +75,7 @@ namespace GameLogic
                 StartGameLoop();
 
                 int bots = Convert.ToInt32(Environment.GetEnvironmentVariable("BOTS"));
+                _BotsGame = bots > 0;
 
                 for (int i = 0; i < bots; ++i)
                 {
@@ -122,6 +124,7 @@ namespace GameLogic
                 await _Agones.AllocateAsync();
                 _GameLogic.SpawnBotPlayer();
                 _GameLogic.SpawnBotPlayer();
+                _BotsGame = true;
                 StartGameLoop();
                 _GameLogic.StartGame();
             }
@@ -136,7 +139,6 @@ namespace GameLogic
         {
             if (gameServer.Status.State != "Allocated") return;
             if (_ServerClock != null) return;
-
             StartGameLoop();
         }
 
@@ -159,6 +161,13 @@ namespace GameLogic
         private void ServerClockTick(ulong frameNumber, double deltaTime)
         {
             _GameLogic.Update((float)deltaTime);
+
+            //Close server for inactive
+            if (!_BotsGame && frameNumber >= _ServerTicksPerSecond * 60 * 10)
+            {
+                _Logger.Log("Server closed for inactive", LogType.Info);
+                GameLogicOnGameOver();
+            }
         }
 
         private void OnClientConnected(object sender, ClientConnectedEventArgs e)
@@ -172,18 +181,6 @@ namespace GameLogic
             if (e.Tag == (ushort)Messages.MessageId.KillGame)
             {
                 GameLogicOnGameOver();
-            }
-
-            if (e.Tag == (ushort)Messages.MessageId.SpawnBots)
-            {
-                _Logger.Log("Spawning 2 bots.", LogType.Info);
-
-                for (int i = 0; i < 2; ++i)
-                {
-                    _GameLogic.SpawnBotPlayer();
-                }
-
-                _GameLogic.StartGame();
             }
         }
 
