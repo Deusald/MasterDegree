@@ -47,11 +47,12 @@ namespace GameLogic
 
         private long        _ServerClockStartTime;
         private ServerClock _ServerClock;
+        private AgonesSDK   _Agones;
 
-        private readonly Logger    _Logger;
-        private readonly GameLogic _GameLogic;
-        private readonly AgonesSDK _Agones;
-        private readonly bool      _IsManualEnv;
+        private readonly Logger      _Logger;
+        private readonly GameLogic   _GameLogic;
+        private readonly ServerClock _HeathClock;
+        private readonly bool        _IsManualEnv;
 
         private const ushort _ServerTicksPerSecond = 15;
         private const ushort _ServerTickLogEveryX  = _ServerTicksPerSecond * 30;
@@ -71,7 +72,7 @@ namespace GameLogic
             if (_IsManualEnv)
             {
                 StartGameLoop();
-                
+
                 int bots = Convert.ToInt32(Environment.GetEnvironmentVariable("BOTS"));
 
                 for (int i = 0; i < bots; ++i)
@@ -81,9 +82,9 @@ namespace GameLogic
             }
             else
             {
-                _Agones = new AgonesSDK();
                 ConnectToAgones().Wait();
-                CreateTimer(0, 2 * MathUtils.SecToMilliseconds, timer => Task.Run(HealthSignal));
+                _HeathClock      =  new ServerClock(1, 10000);
+                _HeathClock.Tick += (number, time) => Task.Run(HealthSignal);
             }
         }
 
@@ -100,6 +101,8 @@ namespace GameLogic
 
         private async Task ConnectToAgones()
         {
+            await Task.Delay(10000);
+            _Agones = new AgonesSDK();
             bool ok = await _Agones.ConnectAsync();
 
             if (!ok)

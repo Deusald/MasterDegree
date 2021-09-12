@@ -155,7 +155,3 @@ $RECYCLE.BIN/
 packages
 
 # Ignore project specific:
-
-# DarkRift Dlls
-/DarkRift/netcoreapp3.1/*
-/DarkRift/net48/*

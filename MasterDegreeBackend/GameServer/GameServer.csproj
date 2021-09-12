@@ -53,13 +53,13 @@
         <HintPath>..\Box2DSharp\Box2DSharp.dll</HintPath>
       </Reference>
       <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.dll</HintPath>
+        <HintPath>..\DarkRift\net48\DarkRift.dll</HintPath>
       </Reference>
       <Reference Include="DarkRift.Client, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.Client.dll</HintPath>
+        <HintPath>..\DarkRift\net48\DarkRift.Client.dll</HintPath>
       </Reference>
       <Reference Include="DarkRift.Server, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
-        <HintPath>..\DarkRift\netcoreapp3.1\DarkRift.Server.dll</HintPath>
+        <HintPath>..\DarkRift\net48\DarkRift.Server.dll</HintPath>
       </Reference>
       <Reference Include="SharpBox2D, Version=0.9.1.0, Culture=neutral, PublicKeyToken=null">
         <HintPath>..\SharpBox2d\SharpBox2D.dll</HintPath>

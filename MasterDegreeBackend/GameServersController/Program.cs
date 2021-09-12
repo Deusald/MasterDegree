@@ -112,7 +112,7 @@ namespace GameServersController
             _Server = new DarkRiftServer(serverSpawnData);
             _Server.StartServer();
             
-            new Thread(() => ConsoleLoop(_Server.LogManager.GetLoggerFor("GameServersController"))).Start();
+            new Thread(ConsoleLoop).Start();
 
             while (!_Server.Disposed)
             {
@@ -125,7 +125,7 @@ namespace GameServersController
 
         #region Private Methods
 
-        private static void ConsoleLoop(Logger logger)
+        private static void ConsoleLoop()
         {
             while (!_Server.Disposed)
             {
@@ -133,7 +133,7 @@ namespace GameServersController
 
                 if (input == null)
                 {
-                    logger.Log("Input loop turned off.", LogType.Info);
+                    Console.WriteLine("Input loop turned off.");
                     return;
                 }
 
