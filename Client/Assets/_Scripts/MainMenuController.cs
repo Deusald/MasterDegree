@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net;
 using DarkRift;
 using DarkRift.Client;
@@ -20,9 +21,9 @@ public class MainMenuController : MonoBehaviour
 
     private DrClient _Client;
     private bool     _ButtonBlock;
+    private string   _GameServersControllerAddress;
 
-    private const string _GameServersControllerAddress = "172.25.202.126"; //"134.122.95.19";
-    private const int    _GameServersControllerPort    = 31317;
+    private const int _GameServersControllerPort = 31317;
 
     #endregion Variables
 
@@ -31,6 +32,8 @@ public class MainMenuController : MonoBehaviour
     private void Awake()
     {
         _Client = new DrClient();
+        string streamingAssetsPath = Path.Combine(Application.streamingAssetsPath, "MasterServerIpAddress.txt");
+        _GameServersControllerAddress = File.ReadAllText(streamingAssetsPath);
         _Client.Connect(IPAddress.Parse(_GameServersControllerAddress), _GameServersControllerPort);
         _Client.MessageReceived += OnMessageReceived;
 
